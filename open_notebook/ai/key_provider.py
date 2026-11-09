@@ -18,7 +18,9 @@ from typing import Optional
 from loguru import logger
 
 from open_notebook.ai.provider_registry import PROVIDERS
+from open_notebook.database.tenant_access import account_mode_enabled
 from open_notebook.domain.credential import Credential
+from open_notebook.exceptions import ConfigurationError
 
 # =============================================================================
 # Provider Configuration Mapping
@@ -305,6 +307,12 @@ async def provision_provider_keys(provider: str) -> bool:
         await provision_provider_keys("openai")
         model = AIFactory.create_language(model_name="gpt-4", provider="openai")
     """
+    if account_mode_enabled():
+        raise ConfigurationError(
+            "Account mode requires a personal model credential; "
+            "process-wide API key provisioning is disabled"
+        )
+
     # Normalize provider name
     provider_lower = provider.lower()
 
