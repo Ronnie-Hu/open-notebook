@@ -51,6 +51,10 @@ from api.routers import (
 )
 from api.routers import commands as commands_router
 from open_notebook.database.async_migrate import AsyncMigrationManager
+from open_notebook.database.tenant_access import (
+    account_mode_enabled,
+    migration_scope,
+)
 from open_notebook.exceptions import (
     AuthenticationError,
     ConfigurationError,
@@ -197,6 +201,12 @@ async def _wait_for_database(migration_manager: AsyncMigrationManager) -> None:
 
 async def _run_database_migrations() -> None:
     """Run startup database migrations after SurrealDB is reachable."""
+    with migration_scope():
+        await _run_database_migrations_as_system()
+
+
+async def _run_database_migrations_as_system() -> None:
+    """Migration operations alone may use the database system identity."""
     migration_manager = AsyncMigrationManager()
     await _wait_for_database(migration_manager)
 
@@ -222,6 +232,11 @@ async def lifespan(app: FastAPI):
     """
     # Startup: Security checks
     logger.info("Starting API initialization...")
+    if account_mode_enabled():
+        raise RuntimeError(
+            "TAgent account mode is not yet ready: data, files, workers, and UI "
+            "must all enforce tenant isolation before it can be enabled"
+        )
 
     # Security check: Encryption key
     if not get_secret_from_env("OPEN_NOTEBOOK_ENCRYPTION_KEY"):

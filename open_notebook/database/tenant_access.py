@@ -4,8 +4,51 @@ import base64
 import hashlib
 import hmac
 import json
+import os
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
+from typing import Iterator
 from uuid import UUID
+
+_account: ContextVar[UUID | None] = ContextVar(
+    "open_notebook_tagent_account", default=None
+)
+_system_operation: ContextVar[bool] = ContextVar(
+    "open_notebook_tagent_system_operation", default=False
+)
+
+
+def account_mode_enabled() -> bool:
+    return os.getenv("OPEN_NOTEBOOK_TAGENT_ACCOUNT_MODE") == "1"
+
+
+@contextmanager
+def account_scope(account_id: UUID) -> Iterator[None]:
+    """Bind a verified TAgent account for downstream DB calls in this task."""
+    token = _account.set(account_id)
+    try:
+        yield
+    finally:
+        _account.reset(token)
+
+
+@contextmanager
+def migration_scope() -> Iterator[None]:
+    """Allow elevated DB access only during the explicit startup migration."""
+    token = _system_operation.set(True)
+    try:
+        yield
+    finally:
+        _system_operation.reset(token)
+
+
+def current_account() -> UUID | None:
+    return _account.get()
+
+
+def in_migration_scope() -> bool:
+    return _system_operation.get()
 
 
 def account_record_id(account_id: UUID) -> str:

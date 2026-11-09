@@ -8,6 +8,13 @@ from loguru import logger
 from surrealdb import AsyncSurreal, RecordID  # type: ignore
 from surrealdb.data.types.table import Table  # type: ignore
 
+from open_notebook.database.tenant_access import (
+    account_mode_enabled,
+    current_account,
+    in_migration_scope,
+    sign_record_token,
+)
+from open_notebook.utils.encryption import get_secret_from_env
 from open_notebook.utils.proxy import ensure_internal_no_proxy
 
 # Keep the internal SurrealDB websocket out of any configured HTTP proxy
@@ -86,15 +93,34 @@ def ensure_record_id(value: Union[str, RecordID]) -> RecordID:
 
 @asynccontextmanager
 async def db_connection():
+    tenant_mode = account_mode_enabled()
+    elevated = in_migration_scope()
+    actor = current_account() if tenant_mode and not elevated else None
+    if tenant_mode and not elevated and actor is None:
+        raise PermissionError("Verified TAgent account is required for database access")
     db = AsyncSurreal(get_database_url())
-    await db.signin(
-        {
-            "username": os.environ.get("SURREAL_USER"),
-            "password": get_database_password(),
-        }
-    )
-    await db.use(get_database_namespace(), get_database_name())
     try:
+        if actor is not None:
+            secret = get_secret_from_env("OPEN_NOTEBOOK_TAGENT_DB_SIGNING_KEY")
+            if not secret:
+                raise RuntimeError("Tenant database signing key is missing")
+            await db.use(get_database_namespace(), get_database_name())
+            await db.authenticate(
+                sign_record_token(
+                    actor,
+                    namespace=get_database_namespace(),
+                    database=get_database_name(),
+                    secret=secret,
+                )
+            )
+        else:
+            await db.signin(
+                {
+                    "username": os.environ.get("SURREAL_USER"),
+                    "password": get_database_password(),
+                }
+            )
+            await db.use(get_database_namespace(), get_database_name())
         yield db
     finally:
         await db.close()
