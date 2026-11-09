@@ -1,4 +1,4 @@
-"""Standalone SurrealDB v2 record-permission probe for TAgent integration design."""
+"""Standalone SurrealDB record-permission probe for TAgent integration design."""
 
 import uuid
 
@@ -105,7 +105,7 @@ def main() -> None:
             pass
         else:
             raise AssertionError("a tampered actor token was accepted")
-        print("SurrealDB v2 record permissions isolated both notebooks")
+        print(f"{db.version()} record permissions isolated both notebooks")
     finally:
         db.close()
 
