@@ -19,6 +19,10 @@ def main() -> None:
             "DEFINE TABLE notebook SCHEMALESS PERMISSIONS "
             "FOR select, create, update, delete WHERE owner = $auth.id"
         )
+        db.query(
+            "DEFINE FUNCTION fn::all_notebooks() { RETURN SELECT title FROM notebook; } "
+            "PERMISSIONS FULL"
+        )
         for name in ("one", "two"):
             db.query(
                 "CREATE type::thing('account', $name) SET email = $email, "
@@ -48,6 +52,8 @@ def main() -> None:
             })
             rows = db.query("SELECT title FROM notebook ORDER BY title")
             assert [row["title"] for row in rows] == [f"{name} private"], rows
+            assert [row["title"] for row in db.query("RETURN fn::all_notebooks()")
+                    ] == [f"{name} private"]
             assert db.query("SELECT * FROM type::thing('notebook', $other)",
                             {"other": "two" if name == "one" else "one"}) == []
             if name == "one":
