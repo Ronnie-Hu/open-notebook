@@ -10,6 +10,7 @@ from surrealdb.data.types.table import Table  # type: ignore
 
 from open_notebook.database.tenant_access import (
     account_mode_enabled,
+    account_record_id,
     current_account,
     in_migration_scope,
     sign_record_token,
@@ -91,6 +92,20 @@ def ensure_record_id(value: Union[str, RecordID]) -> RecordID:
     return RecordID.parse(value)
 
 
+def _owned_payload(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Attach the verified owner to every repository write in account mode."""
+    if not account_mode_enabled() or in_migration_scope():
+        return data
+    actor = current_account()
+    if actor is None:
+        raise PermissionError("Verified TAgent account is required for database writes")
+    owner = ensure_record_id(account_record_id(actor))
+    claimed = data.get("owner")
+    if claimed is not None and ensure_record_id(claimed) != owner:
+        raise PermissionError("A record cannot be assigned to another account")
+    return {**data, "owner": owner}
+
+
 @asynccontextmanager
 async def db_connection():
     tenant_mode = account_mode_enabled()
@@ -152,6 +167,7 @@ async def repo_create(table: str, data: Dict[str, Any]) -> Dict[str, Any]:
     data.pop("id", None)
     data["created"] = datetime.now(timezone.utc)
     data["updated"] = datetime.now(timezone.utc)
+    data = _owned_payload(data)
     try:
         async with db_connection() as connection:
             result = parse_record_ids(await connection.insert(table, data))
@@ -176,6 +192,7 @@ async def repo_relate(
     """Create a relationship between two records with optional data"""
     if data is None:
         data = {}
+    data = _owned_payload(data)
     # relationship is an edge-table name, not a record value, so it can't be
     # bound as a query parameter; validate it against an identifier allowlist
     # instead of trusting the caller. source/target are always bound.
@@ -200,6 +217,7 @@ async def repo_upsert(
     data.pop("id", None)
     if add_timestamp:
         data["updated"] = datetime.now(timezone.utc)
+    data = _owned_payload(data)
     _ensure_safe_identifier(table, "table")
     target: Union[RecordID, Table] = ensure_record_id(id) if id else Table(table)
     query = "UPSERT $target MERGE $data;"
@@ -211,6 +229,7 @@ async def repo_update(
 ) -> List[Dict[str, Any]]:
     """Update an existing record by table and id"""
     # If id already contains the table name, use it as is
+    data = _owned_payload(data)
     try:
         _ensure_safe_identifier(table, "table")
         if isinstance(id, RecordID):
@@ -255,6 +274,7 @@ async def repo_insert(
         return []
     if isinstance(data, dict):
         data = [data]
+    data = [_owned_payload(row) for row in data]
 
     results = []
     if batch_size <= 0:

@@ -27,15 +27,16 @@ class FakeReferences:
 
     async def query(self, query, vars=None):
         vars = {k: str(v) for k, v in (vars or {}).items()}
-        if query.startswith("RELATE"):
-            self.edges.append({"in": vars["source_id"], "out": vars["notebook_id"]})
-            return []
         conditions = re.findall(r"\b(in|out) = \$(\w+)", query)
         return [
             edge
             for edge in self.edges
             if all(edge[field] == vars[param] for field, param in conditions)
         ]
+
+    async def relate(self, source, _relation, notebook):
+        self.edges.append({"in": source, "out": notebook})
+        return []
 
 
 def test_linking_twice_creates_one_reference(client):
@@ -44,6 +45,7 @@ def test_linking_twice_creates_one_reference(client):
         patch("api.routers.notebooks.Notebook.get", new=AsyncMock()),
         patch("api.routers.notebooks.Source.get", new=AsyncMock()),
         patch("api.routers.notebooks.repo_query", new=references.query),
+        patch("api.routers.notebooks.repo_relate", new=references.relate),
     ):
         for _ in range(2):
             response = client.post("/api/notebooks/notebook:n1/sources/source:s1")

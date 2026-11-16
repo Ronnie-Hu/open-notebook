@@ -11,7 +11,7 @@ from api.models import (
     NotebookUpdate,
     RecentlyViewedResponse,
 )
-from open_notebook.database.repository import ensure_record_id, repo_query
+from open_notebook.database.repository import ensure_record_id, repo_query, repo_relate
 from open_notebook.domain.notebook import Notebook, Source
 from open_notebook.exceptions import (
     InvalidInputError,
@@ -360,13 +360,7 @@ async def add_source_to_notebook(notebook_id: str, source_id: str):
 
         # If reference doesn't exist, create it
         if not existing_ref:
-            await repo_query(
-                "RELATE $source_id->reference->$notebook_id",
-                {
-                    "notebook_id": ensure_record_id(notebook_id),
-                    "source_id": ensure_record_id(source_id),
-                },
-            )
+            await repo_relate(source_id, "reference", notebook_id)
 
         return {"message": "Source linked to notebook successfully"}
     except HTTPException:

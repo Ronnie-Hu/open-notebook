@@ -14,7 +14,12 @@ from loguru import logger
 from surreal_commands import CommandInput, CommandOutput, command, submit_command
 
 from open_notebook.ai.models import model_manager
-from open_notebook.database.repository import ensure_record_id, repo_insert, repo_query
+from open_notebook.database.repository import (
+    ensure_record_id,
+    repo_create,
+    repo_insert,
+    repo_query,
+)
 from open_notebook.domain.notebook import Note, Source, SourceInsight
 from open_notebook.exceptions import (
     ConfigurationError,
@@ -462,25 +467,20 @@ async def create_insight_command(
         )
 
         # 1. Create insight record in database
-        result = await repo_query(
-            """
-            CREATE source_insight CONTENT {
-                "source": $source_id,
-                "insight_type": $insight_type,
-                "content": $content
-            };
-            """,
+        result = await repo_create(
+            "source_insight",
             {
-                "source_id": ensure_record_id(input_data.source_id),
+                "source": ensure_record_id(input_data.source_id),
                 "insight_type": input_data.insight_type,
                 "content": input_data.content,
             },
         )
 
-        if not result or len(result) == 0:
+        if not result:
             raise ValueError("Failed to create insight - no result returned")
 
-        insight_id = str(result[0].get("id", ""))
+        created = result[0] if isinstance(result, list) else result
+        insight_id = str(created.get("id", ""))
         if not insight_id:
             raise ValueError("Failed to create insight - no ID in result")
 

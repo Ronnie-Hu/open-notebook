@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Turkish README.** A Turkish translation of the README is at [docs/i18n/tr/README.md](docs/i18n/tr/README.md), linked from the README's language bar (#1549)
 
 ### Security
+- In the TAgent isolation branch, repository writes now attach the verified account as record owner and reject a caller-supplied owner from another account. Source-to-notebook links and insight creation use those guarded write paths. The account-mode startup gate remains in place until schema migration and background jobs are isolated.
 - TAgent account mode now binds API requests to a loopback-verified browser session, checks Origin and CSRF on writes, and disables cross-origin API access. Account mode still refuses startup until data, files, workers, and the full UI are isolated.
 - TAgent student accounts may configure only external HTTPS model endpoints. Private or unresolved addresses and server credential file paths are rejected; administrators retain the single-user deployment's local model options. Account mode remains gated until provider SDK egress is also restricted at the network layer.
 - TAgent account mode remains behind a startup guard until every data path is isolated. Its database connection rejects unscoped requests instead of falling back to root, and process-wide model key provisioning is disabled in that mode.
