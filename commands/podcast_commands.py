@@ -9,7 +9,10 @@ from surreal_commands import CommandInput, CommandOutput, command
 from open_notebook.config import PODCASTS_FOLDER
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.database.tenant_commands import tenant_command_handler
-from open_notebook.podcasts.audio_paths import to_relative_audio_path
+from open_notebook.podcasts.audio_paths import (
+    account_podcast_root,
+    to_relative_audio_path,
+)
 from open_notebook.podcasts.models import (
     EpisodeProfile,
     PodcastEpisode,
@@ -40,7 +43,7 @@ def build_episode_output_dir(
         A tuple of (episode_dir_name, output_dir_path).
     """
     episode_dir_name = str(uuid.uuid4())
-    output_dir = Path(podcasts_folder) / "episodes" / episode_dir_name
+    output_dir = account_podcast_root(podcasts_folder) / "episodes" / episode_dir_name
     return episode_dir_name, output_dir
 
 

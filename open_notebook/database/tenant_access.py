@@ -68,6 +68,16 @@ def account_record_id(account_id: UUID) -> str:
     return f"account:{account_id.hex}"
 
 
+def legacy_admin_id() -> UUID:
+    raw = os.getenv("OPEN_NOTEBOOK_LEGACY_ADMIN_ID")
+    if not raw:
+        raise RuntimeError("Legacy administrator ID is required in account mode")
+    try:
+        return UUID(raw)
+    except ValueError as error:
+        raise RuntimeError("Legacy administrator ID is invalid") from error
+
+
 def scoped_singleton_record_id(record_id: str) -> str:
     """Keep the legacy administrator's singleton; give each other account its own."""
     if not account_mode_enabled():
@@ -75,14 +85,8 @@ def scoped_singleton_record_id(record_id: str) -> str:
     actor = current_account()
     if actor is None:
         raise PermissionError("Verified TAgent account is required for settings")
-    legacy_admin = os.getenv("OPEN_NOTEBOOK_LEGACY_ADMIN_ID")
-    if not legacy_admin:
-        raise RuntimeError("Legacy administrator ID is required in account mode")
-    try:
-        if actor == UUID(legacy_admin):
-            return record_id
-    except ValueError as error:
-        raise RuntimeError("Legacy administrator ID is invalid") from error
+    if actor == legacy_admin_id():
+        return record_id
     table, separator, key = record_id.partition(":")
     if not separator or not table or not key:
         raise ValueError("Singleton record ID must include a table and key")

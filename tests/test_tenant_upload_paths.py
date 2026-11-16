@@ -19,10 +19,12 @@ from open_notebook.storage import tenant_paths
 
 STUDENT = UUID("db9f0e0c-4d8e-4a84-8b9a-c7576450212d")
 OTHER = UUID("5fc55ced-5acd-4fc8-bf17-0eb8fe36a10f")
+ADMIN = UUID("1de64c8e-f61e-4ab3-abfa-b8bd7a6b34bc")
 
 
 def test_student_and_admin_path_boundaries(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("OPEN_NOTEBOOK_TAGENT_ACCOUNT_MODE", "1")
+    monkeypatch.setenv("OPEN_NOTEBOOK_LEGACY_ADMIN_ID", str(ADMIN))
     monkeypatch.setattr(tenant_paths, "UPLOADS_FOLDER", str(tmp_path))
     own = tmp_path / STUDENT.hex / "own.pdf"
     other = tmp_path / OTHER.hex / "other.pdf"
@@ -36,10 +38,13 @@ def test_student_and_admin_path_boundaries(tmp_path, monkeypatch) -> None:
             tenant_paths.validate_upload_path(str(other))
         with pytest.raises(ValueError, match="another account"):
             tenant_paths.validate_upload_path(str(legacy))
-    with account_scope(OTHER, role="admin"):
+    with account_scope(ADMIN, role="admin"):
         assert tenant_paths.validate_upload_path(str(legacy)) == legacy
         with pytest.raises(ValueError, match="another account"):
             tenant_paths.validate_upload_path(str(own))
+    with account_scope(OTHER, role="admin"):
+        with pytest.raises(ValueError, match="another account"):
+            tenant_paths.validate_upload_path(str(legacy))
 
 
 @pytest.mark.asyncio

@@ -25,6 +25,12 @@ from typing import Optional, Union
 from urllib.parse import unquote, urlparse
 
 from open_notebook.config import PODCASTS_FOLDER
+from open_notebook.database.tenant_access import (
+    account_mode_enabled,
+    current_account,
+    current_role,
+    legacy_admin_id,
+)
 
 
 def podcasts_root() -> Path:
@@ -34,6 +40,30 @@ def podcasts_root() -> Path:
     monkeypatch ``PODCASTS_FOLDER`` on this module.
     """
     return Path(os.path.realpath(PODCASTS_FOLDER))
+
+
+def account_podcast_root(base_folder: Union[str, Path]) -> Path:
+    """Select the directory where a new episode for this account is written."""
+    root = Path(base_folder)
+    if not account_mode_enabled():
+        return root
+    actor = current_account()
+    if actor is None:
+        raise PermissionError("Verified TAgent account is required for podcasts")
+    return root / actor.hex
+
+
+def _account_can_read(relative: Path) -> bool:
+    actor = current_account()
+    if actor is None:
+        raise PermissionError("Verified TAgent account is required for podcasts")
+    if relative.parts and relative.parts[0] == actor.hex:
+        return True
+    return (
+        current_role() == "admin"
+        and actor == legacy_admin_id()
+        and relative.parts[:1] == ("episodes",)
+    )
 
 
 def to_relative_audio_path(audio_path: Union[str, Path]) -> str:
@@ -50,14 +80,30 @@ def to_relative_audio_path(audio_path: Union[str, Path]) -> str:
     """
     raw = str(audio_path)
     if raw.startswith("file://"):
-        raw = unquote(urlparse(raw).path)
+        parsed = urlparse(raw)
+        if os.name == "nt" and len(parsed.netloc) >= 2 and parsed.netloc[1] == ":":
+            # podcast-creator also emits file://C:\\path on Windows.
+            raw = unquote(parsed.netloc + parsed.path)
+        else:
+            if parsed.netloc not in {"", "localhost"}:
+                raise ValueError("Generated audio file URI must be local")
+            raw = unquote(parsed.path)
+            if os.name == "nt" and len(raw) >= 3 and raw[0] == "/" and raw[2] == ":":
+                raw = raw[1:]
     resolved = Path(os.path.realpath(raw))
     root = podcasts_root()
     if resolved == root or not resolved.is_relative_to(root):
         raise ValueError(
             f"Generated audio file path is outside the podcasts folder: {audio_path}"
         )
-    return resolved.relative_to(root).as_posix()
+    relative = resolved.relative_to(root)
+    if account_mode_enabled():
+        actor = current_account()
+        if actor is None:
+            raise PermissionError("Verified TAgent account is required for podcasts")
+        if not relative.parts or relative.parts[0] != actor.hex:
+            raise ValueError("Generated audio file belongs to another account")
+    return relative.as_posix()
 
 
 def resolve_contained_audio_path(audio_file: Optional[str]) -> Optional[Path]:
@@ -83,5 +129,7 @@ def resolve_contained_audio_path(audio_file: Optional[str]) -> Optional[Path]:
     root = podcasts_root()
     resolved = Path(os.path.realpath(root / candidate))
     if resolved == root or not resolved.is_relative_to(root):
+        return None
+    if account_mode_enabled() and not _account_can_read(resolved.relative_to(root)):
         return None
     return resolved

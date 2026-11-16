@@ -7,6 +7,7 @@ from open_notebook.database.tenant_access import (
     account_mode_enabled,
     current_account,
     current_role,
+    legacy_admin_id,
 )
 
 
@@ -35,6 +36,10 @@ def validate_upload_path(file_path: str, *, uploads_root: str | None = None) -> 
         return target
     # Original single-user uploads were written directly in the shared root.
     # Migration 27 gives their source rows to the administrator only.
-    if current_role() == "admin" and target.parent == root:
+    if (
+        current_role() == "admin"
+        and actor == legacy_admin_id()
+        and target.parent == root
+    ):
         return target
     raise ValueError("Invalid file path: upload belongs to another account")
