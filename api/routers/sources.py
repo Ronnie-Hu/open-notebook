@@ -16,7 +16,6 @@ from fastapi import (
 from fastapi.responses import FileResponse, Response
 from loguru import logger
 from pydantic import ValidationError
-from surreal_commands import execute_command_sync, submit_command
 
 from api.command_service import CommandService
 from api.credentials_service import validate_url
@@ -34,6 +33,7 @@ from api.models import (
 from commands.source_commands import SourceProcessingInput
 from open_notebook.config import UPLOADS_FOLDER
 from open_notebook.database.repository import ensure_record_id, repo_query
+from open_notebook.database.tenant_commands import execute_command_sync, submit_command
 from open_notebook.domain.notebook import Asset, Notebook, Source
 from open_notebook.domain.transformation import Transformation
 from open_notebook.exceptions import (

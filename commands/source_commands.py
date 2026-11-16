@@ -6,6 +6,7 @@ from loguru import logger
 from surreal_commands import CommandInput, CommandOutput, command
 
 from open_notebook.database.repository import ensure_record_id
+from open_notebook.database.tenant_commands import tenant_command_handler
 from open_notebook.domain.notebook import Source
 from open_notebook.domain.transformation import Transformation
 from open_notebook.exceptions import (
@@ -61,6 +62,7 @@ class SourceProcessingOutput(CommandOutput):
         "retry_log_level": "debug",  # Avoid log noise during transaction conflicts
     },
 )
+@tenant_command_handler
 async def process_source_command(
     input_data: SourceProcessingInput,
 ) -> SourceProcessingOutput:
@@ -225,6 +227,7 @@ class RunTransformationOutput(CommandOutput):
         "retry_log_level": "warning",
     },
 )
+@tenant_command_handler
 async def run_transformation_command(
     input_data: RunTransformationInput,
 ) -> RunTransformationOutput:

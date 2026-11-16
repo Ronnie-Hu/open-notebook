@@ -8,6 +8,7 @@ from surreal_commands import CommandInput, CommandOutput, command
 
 from open_notebook.config import PODCASTS_FOLDER
 from open_notebook.database.repository import ensure_record_id, repo_query
+from open_notebook.database.tenant_commands import tenant_command_handler
 from open_notebook.podcasts.audio_paths import to_relative_audio_path
 from open_notebook.podcasts.models import (
     EpisodeProfile,
@@ -118,6 +119,7 @@ class PodcastGenerationOutput(CommandOutput):
 
 
 @command("generate_podcast", app="open_notebook", retry={"max_attempts": 1})
+@tenant_command_handler
 async def generate_podcast_command(
     input_data: PodcastGenerationInput,
 ) -> PodcastGenerationOutput:

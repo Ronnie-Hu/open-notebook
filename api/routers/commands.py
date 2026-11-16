@@ -30,6 +30,8 @@ async def get_command_job_status(job_id: str):
 
     except HTTPException:
         raise
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Job not found")
     except OpenNotebookError:
         raise
     except Exception as e:

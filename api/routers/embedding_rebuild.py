@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException
 from loguru import logger
-from surreal_commands import get_command_status
 
 from api.command_service import CommandService
 from api.models import (
@@ -11,6 +10,7 @@ from api.models import (
     RebuildStatusResponse,
 )
 from open_notebook.database.repository import repo_query
+from open_notebook.database.tenant_commands import get_command_status
 from open_notebook.exceptions import OpenNotebookError
 
 router = APIRouter()

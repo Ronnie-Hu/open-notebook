@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from open_notebook.graphs import source as source_graph
 from open_notebook.graphs.source import content_process, validate_content_state
+from open_notebook.storage import tenant_paths
 
 
 @pytest.fixture
@@ -24,7 +25,7 @@ def client():
 def uploads(tmp_path, monkeypatch):
     root = tmp_path / "uploads"
     root.mkdir()
-    monkeypatch.setattr(source_graph, "UPLOADS_FOLDER", str(root))
+    monkeypatch.setattr(tenant_paths, "UPLOADS_FOLDER", str(root))
     return root
 
 
@@ -43,6 +44,14 @@ class TestGenericCommandSubmissionRemoved:
         ):
             response = client.get("/api/commands/jobs/command:abc")
         assert response.status_code == 200
+
+    def test_job_status_for_another_account_is_not_found(self, client):
+        with patch(
+            "api.routers.commands.CommandService.get_command_status",
+            new=AsyncMock(side_effect=ValueError("Command not found")),
+        ):
+            response = client.get("/api/commands/jobs/command:other")
+        assert response.status_code == 404
 
 
 class TestValidateContentState:

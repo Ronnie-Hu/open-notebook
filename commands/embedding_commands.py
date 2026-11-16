@@ -11,7 +11,7 @@ from typing import (
 )
 
 from loguru import logger
-from surreal_commands import CommandInput, CommandOutput, command, submit_command
+from surreal_commands import CommandInput, CommandOutput, command
 
 from open_notebook.ai.models import model_manager
 from open_notebook.database.repository import (
@@ -19,6 +19,10 @@ from open_notebook.database.repository import (
     repo_create,
     repo_insert,
     repo_query,
+)
+from open_notebook.database.tenant_commands import (
+    submit_command,
+    tenant_command_handler,
 )
 from open_notebook.domain.notebook import Note, Source, SourceInsight
 from open_notebook.exceptions import (
@@ -230,6 +234,7 @@ class EmbedSourceOutput(CommandOutput):
 
 
 @command("embed_note", app="open_notebook", retry=EMBED_RETRY_CONFIG)
+@tenant_command_handler
 async def embed_note_command(input_data: EmbedNoteInput) -> EmbedNoteOutput:
     """
     Generate and store embedding for a single note.
@@ -273,6 +278,7 @@ async def embed_note_command(input_data: EmbedNoteInput) -> EmbedNoteOutput:
 
 
 @command("embed_insight", app="open_notebook", retry=EMBED_RETRY_CONFIG)
+@tenant_command_handler
 async def embed_insight_command(input_data: EmbedInsightInput) -> EmbedInsightOutput:
     """
     Generate and store embedding for a single source insight.
@@ -316,6 +322,7 @@ async def embed_insight_command(input_data: EmbedInsightInput) -> EmbedInsightOu
 
 
 @command("embed_source", app="open_notebook", retry=EMBED_RETRY_CONFIG)
+@tenant_command_handler
 async def embed_source_command(input_data: EmbedSourceInput) -> EmbedSourceOutput:
     """
     Generate and store embeddings for a source document.
@@ -437,6 +444,7 @@ async def embed_source_command(input_data: EmbedSourceInput) -> EmbedSourceOutpu
 
 
 @command("create_insight", app="open_notebook", retry=EMBED_RETRY_CONFIG)
+@tenant_command_handler
 async def create_insight_command(
     input_data: CreateInsightInput,
 ) -> CreateInsightOutput:
@@ -632,6 +640,7 @@ def _submit_embedding_jobs(
 
 
 @command("rebuild_embeddings", app="open_notebook", retry=None)
+@tenant_command_handler
 async def rebuild_embeddings_command(
     input_data: RebuildEmbeddingsInput,
 ) -> RebuildEmbeddingsOutput:
