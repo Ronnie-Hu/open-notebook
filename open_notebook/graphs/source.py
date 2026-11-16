@@ -1,6 +1,5 @@
 import operator
 import os
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
@@ -14,11 +13,11 @@ from loguru import logger
 from typing_extensions import Annotated, TypedDict
 
 from open_notebook.ai.models import Model, ModelManager
-from open_notebook.config import UPLOADS_FOLDER
 from open_notebook.domain.content_settings import ContentSettings
 from open_notebook.domain.notebook import Asset, Source
 from open_notebook.domain.transformation import Transformation
 from open_notebook.graphs.transformation import graph as transform_graph
+from open_notebook.storage.tenant_paths import validate_upload_path
 from open_notebook.utils.runtime_capabilities import engine_runtime_missing
 from open_notebook.utils.url_validation import validate_url
 
@@ -171,11 +170,7 @@ async def validate_content_state(content_state: Dict[str, Any]) -> None:
     """
     file_path = content_state.get("file_path")
     if file_path:
-        uploads_resolved = Path(UPLOADS_FOLDER).resolve()
-        if not str(Path(file_path).resolve()).startswith(
-            str(uploads_resolved) + os.sep
-        ):
-            raise ValueError("Invalid file path: must be within the uploads directory")
+        validate_upload_path(file_path)
     url = content_state.get("url")
     if url:
         await validate_url(url, "source")
@@ -281,7 +276,7 @@ async def content_process(state: SourceState) -> dict:
     # extraction (the delete_source flag it used to honor is gone). Preserve the
     # previous auto-delete behavior on our side.
     if content_state.get("delete_source") and content_state.get("file_path"):
-        file_path = content_state["file_path"]
+        file_path = validate_upload_path(content_state["file_path"])
         try:
             os.unlink(file_path)
         except FileNotFoundError:

@@ -42,6 +42,7 @@ from open_notebook.exceptions import (
     OpenNotebookError,
     UnsupportedTypeException,
 )
+from open_notebook.storage.tenant_paths import upload_folder, validate_upload_path
 
 router = APIRouter()
 
@@ -156,10 +157,10 @@ def generate_unique_filename(original_filename: str, upload_folder: str) -> str:
             counter += 1
 
 
-def _write_uploaded_file(filename: str, content: bytes) -> str:
+def _write_uploaded_file(filename: str, content: bytes, folder: str) -> str:
     """Sync filesystem work for save_uploaded_file() - run via asyncio.to_thread
     so a large upload doesn't block the event loop for other requests."""
-    file_path = generate_unique_filename(filename, UPLOADS_FOLDER)
+    file_path = generate_unique_filename(filename, folder)
     try:
         with open(file_path, "wb") as f:
             f.write(content)
@@ -180,7 +181,12 @@ async def save_uploaded_file(upload_file: UploadFile) -> str:
         raise ValueError("No filename provided")
 
     content = await upload_file.read()
-    return await asyncio.to_thread(_write_uploaded_file, upload_file.filename, content)
+    return await asyncio.to_thread(
+        _write_uploaded_file,
+        upload_file.filename,
+        content,
+        str(upload_folder(uploads_root=UPLOADS_FOLDER)),
+    )
 
 
 def parse_source_form_data(
@@ -450,12 +456,12 @@ async def _build_content_state(
                 detail="File upload or file_path is required for upload type",
             )
         # Validate file_path is within the uploads directory to prevent LFI
-        uploads_resolved = Path(UPLOADS_FOLDER).resolve()
-        file_resolved = Path(final_file_path).resolve()
-        if not str(file_resolved).startswith(str(uploads_resolved) + os.sep):
+        try:
+            validate_upload_path(final_file_path, uploads_root=UPLOADS_FOLDER)
+        except (ValueError, PermissionError):
             raise HTTPException(
                 status_code=400,
-                detail="Invalid file path: must be within the uploads directory",
+                detail="Invalid file path: must be within your uploads directory",
             )
         # Reject unsupported files before enqueueing a doomed background job.
         await _assert_file_supported(final_file_path)
@@ -722,12 +728,13 @@ async def _resolve_source_file(source_id: str) -> tuple[str, str]:
     if not file_path:
         raise HTTPException(status_code=404, detail="Source has no file to download")
 
-    safe_root = os.path.realpath(UPLOADS_FOLDER)
-    resolved_path = os.path.realpath(file_path)
-
-    if resolved_path != safe_root and not resolved_path.startswith(safe_root + os.sep):
+    try:
+        resolved_path = str(
+            validate_upload_path(file_path, uploads_root=UPLOADS_FOLDER)
+        )
+    except (ValueError, PermissionError):
         logger.warning(
-            f"Blocked download outside uploads directory for source {source_id}: {resolved_path}"
+            f"Blocked download outside account uploads directory for source {source_id}"
         )
         raise HTTPException(status_code=403, detail="Access to file denied")
 
@@ -743,13 +750,12 @@ def _is_source_file_available(source: Source) -> Optional[bool]:
         return None
 
     file_path = source.asset.file_path
-    safe_root = os.path.realpath(UPLOADS_FOLDER)
-    resolved_path = os.path.realpath(file_path)
-
-    if resolved_path != safe_root and not resolved_path.startswith(safe_root + os.sep):
+    try:
+        resolved_path = validate_upload_path(file_path, uploads_root=UPLOADS_FOLDER)
+    except (ValueError, PermissionError):
         return False
 
-    return os.path.exists(resolved_path)
+    return resolved_path.exists()
 
 
 @router.get("/sources/{source_id}", response_model=SourceResponse)

@@ -9,12 +9,14 @@ from surreal_commands import submit_command
 from surrealdb import RecordID
 
 from open_notebook.database.repository import ensure_record_id, repo_query
+from open_notebook.database.tenant_access import account_mode_enabled
 from open_notebook.domain.base import ObjectModel
 from open_notebook.exceptions import (
     DatabaseOperationError,
     InvalidInputError,
     NotFoundError,
 )
+from open_notebook.storage.tenant_paths import validate_upload_path
 
 
 class Notebook(ObjectModel):
@@ -651,7 +653,11 @@ class Source(ObjectModel):
         """Delete source and clean up associated file, embeddings, and insights."""
         # Clean up uploaded file if it exists
         if self.asset and self.asset.file_path:
-            file_path = Path(self.asset.file_path)
+            file_path = (
+                validate_upload_path(self.asset.file_path)
+                if account_mode_enabled()
+                else Path(self.asset.file_path)
+            )
             if file_path.exists():
                 try:
                     os.unlink(file_path)
