@@ -1,0 +1,72 @@
+-- TAgent account mode only. Restore a database backup to roll this back.
+-- The launcher supplies validated admin ID and signing key placeholders.
+BEGIN TRANSACTION;
+
+DEFINE TABLE IF NOT EXISTS account SCHEMALESS;
+UPSERT account:@LEGACY_ADMIN_HEX@ SET active = true;
+DEFINE ACCESS tagent_account ON DATABASE TYPE RECORD
+    SIGNIN (SELECT * FROM account WHERE false)
+    WITH JWT ALGORITHM HS512 KEY '@TAGENT_SIGNING_KEY@'
+    DURATION FOR TOKEN 1h, FOR SESSION 1h;
+DEFINE TABLE OVERWRITE account SCHEMALESS PERMISSIONS
+    FOR select WHERE id = $auth.id
+    FOR create, update, delete NONE;
+
+DEFINE TABLE IF NOT EXISTS model SCHEMALESS;
+DEFINE TABLE IF NOT EXISTS open_notebook SCHEMALESS;
+
+DEFINE FIELD owner ON notebook TYPE record<account>;
+DEFINE FIELD owner ON source TYPE record<account>;
+DEFINE FIELD owner ON source_embedding TYPE record<account>;
+DEFINE FIELD owner ON source_insight TYPE record<account>;
+DEFINE FIELD owner ON note TYPE record<account>;
+DEFINE FIELD owner ON reference TYPE record<account>;
+DEFINE FIELD owner ON artifact TYPE record<account>;
+DEFINE FIELD owner ON chat_session TYPE record<account>;
+DEFINE FIELD owner ON refers_to TYPE record<account>;
+DEFINE FIELD owner ON transformation TYPE record<account>;
+DEFINE FIELD owner ON episode_profile TYPE record<account>;
+DEFINE FIELD owner ON speaker_profile TYPE record<account>;
+DEFINE FIELD owner ON episode TYPE record<account>;
+DEFINE FIELD owner ON credential TYPE record<account>;
+DEFINE FIELD owner ON model TYPE record<account>;
+DEFINE FIELD owner ON open_notebook TYPE record<account>;
+DEFINE FIELD owner ON podcast_config TYPE record<account>;
+
+UPDATE notebook SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE source SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE source_embedding SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE source_insight SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE note SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE reference SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE artifact SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE chat_session SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE refers_to SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE transformation SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE episode_profile SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE speaker_profile SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE episode SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE credential SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE model SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE open_notebook SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+UPDATE podcast_config SET owner = account:@LEGACY_ADMIN_HEX@ WHERE owner = NONE;
+
+DEFINE TABLE OVERWRITE notebook SCHEMAFULL PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id;
+DEFINE TABLE OVERWRITE source SCHEMAFULL PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id;
+DEFINE TABLE OVERWRITE source_embedding SCHEMAFULL PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id AND source.owner = $auth.id;
+DEFINE TABLE OVERWRITE source_insight SCHEMAFULL PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id AND source.owner = $auth.id;
+DEFINE TABLE OVERWRITE note SCHEMAFULL PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id;
+DEFINE TABLE OVERWRITE reference TYPE RELATION FROM source TO notebook PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id AND in.owner = $auth.id AND out.owner = $auth.id;
+DEFINE TABLE OVERWRITE artifact TYPE RELATION FROM note TO notebook PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id AND in.owner = $auth.id AND out.owner = $auth.id;
+DEFINE TABLE OVERWRITE chat_session SCHEMALESS PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id;
+DEFINE TABLE OVERWRITE refers_to TYPE RELATION FROM chat_session TO notebook PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id AND in.owner = $auth.id AND out.owner = $auth.id;
+DEFINE TABLE OVERWRITE transformation SCHEMAFULL PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id;
+DEFINE TABLE OVERWRITE episode_profile SCHEMAFULL PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id;
+DEFINE TABLE OVERWRITE speaker_profile SCHEMAFULL PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id;
+DEFINE TABLE OVERWRITE episode SCHEMAFULL PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id;
+DEFINE TABLE OVERWRITE credential SCHEMAFULL PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id;
+DEFINE TABLE OVERWRITE model SCHEMALESS PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id;
+DEFINE TABLE OVERWRITE open_notebook SCHEMALESS PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id;
+DEFINE TABLE OVERWRITE podcast_config SCHEMALESS PERMISSIONS FOR select, create, update, delete WHERE owner = $auth.id;
+
+COMMIT TRANSACTION;

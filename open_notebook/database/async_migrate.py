@@ -3,11 +3,38 @@ Async migration system for SurrealDB using the official Python client.
 Based on patterns from sblpy migration system.
 """
 
+import os
+import re
 from typing import List
+from uuid import UUID
 
 from loguru import logger
 
+from open_notebook.database.tenant_access import account_mode_enabled
+from open_notebook.utils.encryption import get_secret_from_env
+
 from .repository import db_connection, repo_query
+
+
+def _account_migration() -> "AsyncMigration":
+    """Render the account migration with validated deployment-only values."""
+    try:
+        admin = UUID(os.getenv("OPEN_NOTEBOOK_LEGACY_ADMIN_ID", ""))
+    except ValueError as exc:
+        raise ValueError("A valid legacy administrator account ID is required") from exc
+    if admin.int == 0:
+        raise ValueError("A nonzero legacy administrator account ID is required")
+    secret = get_secret_from_env("OPEN_NOTEBOOK_TAGENT_DB_SIGNING_KEY") or ""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{43,128}", secret):
+        raise ValueError("The tenant signing key must be 43-128 URL-safe characters")
+    migration = AsyncMigration.from_file(
+        "open_notebook/database/migrations/27.surrealql"
+    )
+    return AsyncMigration(
+        migration.sql.replace("@LEGACY_ADMIN_HEX@", admin.hex).replace(
+            "@TAGENT_SIGNING_KEY@", secret
+        )
+    )
 
 
 class AsyncMigration:
@@ -37,7 +64,9 @@ class AsyncMigration:
         """Run the migration."""
         try:
             async with db_connection() as connection:
-                await connection.query(self.sql)
+                result = await connection.query(self.sql)
+                if isinstance(result, str):
+                    raise RuntimeError(result)
 
             if bump:
                 await bump_version()
@@ -203,6 +232,13 @@ class AsyncMigrationManager:
                 "open_notebook/database/migrations/26_down.surrealql"
             ),
         ]
+        if account_mode_enabled():
+            self.up_migrations.append(_account_migration())
+            self.down_migrations.append(
+                AsyncMigration.from_file(
+                    "open_notebook/database/migrations/27_down.surrealql"
+                )
+            )
         self.runner = AsyncMigrationRunner(
             up_migrations=self.up_migrations,
             down_migrations=self.down_migrations,
@@ -224,6 +260,8 @@ class AsyncMigrationManager:
     async def needs_migration(self) -> bool:
         """Check if migration is needed."""
         current_version = await self.get_current_version()
+        if current_version > len(self.up_migrations):
+            raise RuntimeError("Database schema is newer than this deployment mode")
         return current_version < len(self.up_migrations)
 
     async def run_migration_up(self):
