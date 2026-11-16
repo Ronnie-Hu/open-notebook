@@ -207,7 +207,7 @@ class ProviderConfig(RecordModel):
         """
         result = await repo_query(
             "SELECT * FROM ONLY $record_id",
-            {"record_id": ensure_record_id(cls.record_id)},
+            {"record_id": ensure_record_id(cls.effective_record_id())},
         )
 
         if result:
@@ -432,7 +432,7 @@ class ProviderConfig(RecordModel):
         and encryption.
         """
         data = self._prepare_save_data()
-        await repo_upsert("open_notebook", self.record_id, data)
+        await repo_upsert("open_notebook", self.effective_record_id(), data)
         return self
 
     @classmethod

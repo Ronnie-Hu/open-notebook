@@ -178,7 +178,7 @@ class DefaultModels(RecordModel):
         """Always fetch fresh defaults from database (override parent caching behavior)"""
         result = await repo_query(
             "SELECT * FROM ONLY $record_id",
-            {"record_id": ensure_record_id(cls.record_id)},
+            {"record_id": ensure_record_id(cls.effective_record_id())},
         )
 
         if result:

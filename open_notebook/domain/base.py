@@ -20,6 +20,10 @@ from open_notebook.database.repository import (
     repo_update,
     repo_upsert,
 )
+from open_notebook.database.tenant_access import (
+    account_mode_enabled,
+    scoped_singleton_record_id,
+)
 from open_notebook.exceptions import (
     DatabaseOperationError,
     InvalidInputError,
@@ -259,7 +263,14 @@ class RecordModel(BaseModel):
     )
     _instances: ClassVar[Dict[str, "RecordModel"]] = {}  # Store instances by record_id
 
+    @classmethod
+    def effective_record_id(cls) -> str:
+        return scoped_singleton_record_id(cls.record_id)
+
     def __new__(cls, **kwargs):
+        # Account-mode instances must never be reused across requests or users.
+        if account_mode_enabled():
+            return super().__new__(cls)
         # If an instance already exists for this record_id, return it
         if cls.record_id in cls._instances:
             instance = cls._instances[cls.record_id]
@@ -292,7 +303,7 @@ class RecordModel(BaseModel):
         if not getattr(self, "_db_loaded", False):
             result = await repo_query(
                 "SELECT * FROM ONLY $record_id",
-                {"record_id": ensure_record_id(self.record_id)},
+                {"record_id": ensure_record_id(self.effective_record_id())},
             )
 
             # Handle case where record doesn't exist yet
@@ -332,7 +343,7 @@ class RecordModel(BaseModel):
         # Get all non-ClassVar fields and their values
         data = {
             field_name: getattr(self, field_name)
-            for field_name, field_info in self.model_fields.items()
+            for field_name, field_info in type(self).model_fields.items()
             if not str(field_info.annotation).startswith("typing.ClassVar")
         }
 
@@ -340,12 +351,13 @@ class RecordModel(BaseModel):
             self.__class__.table_name
             if hasattr(self.__class__, "table_name")
             else "record",
-            self.record_id,
+            self.effective_record_id(),
             data,
         )
 
         result = await repo_query(
-            "SELECT * FROM $record_id", {"record_id": ensure_record_id(self.record_id)}
+            "SELECT * FROM $record_id",
+            {"record_id": ensure_record_id(self.effective_record_id())},
         )
         if result:
             for key, value in result[0].items():

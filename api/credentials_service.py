@@ -1171,7 +1171,7 @@ async def migrate_encryption_scheme() -> dict:
 
     singleton_rows = await repo_query(
         "SELECT * FROM ONLY $record_id",
-        {"record_id": ensure_record_id(ProviderConfig.record_id)},
+        {"record_id": ensure_record_id(ProviderConfig.effective_record_id())},
     )
     if singleton_rows:
         data = singleton_rows[0] if isinstance(singleton_rows, list) else singleton_rows
@@ -1182,7 +1182,7 @@ async def migrate_encryption_scheme() -> dict:
                 try:
                     await repo_upsert(
                         "open_notebook",
-                        ProviderConfig.record_id,
+                        ProviderConfig.effective_record_id(),
                         {"credentials": creds},
                     )
                 except Exception as e:
