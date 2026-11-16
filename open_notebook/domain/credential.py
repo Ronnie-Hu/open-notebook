@@ -21,7 +21,9 @@ from loguru import logger
 from pydantic import SecretStr, model_validator
 
 from open_notebook.database.repository import ensure_record_id, repo_query
+from open_notebook.database.tenant_access import student_account_mode
 from open_notebook.domain.base import ObjectModel
+from open_notebook.exceptions import ConfigurationError
 from open_notebook.utils.encryption import decrypt_value, encrypt_value
 
 
@@ -105,6 +107,10 @@ class Credential(ObjectModel):
         Returns a dict that can be passed as the 'config' parameter to
         Esperanto's AIFactory methods, overriding env var lookup.
         """
+        if student_account_mode() and self.credentials_path:
+            raise ConfigurationError(
+                "Student accounts cannot use server credential file paths"
+            )
         config: Dict[str, Any] = {}
         if self.api_key:
             config["api_key"] = self.api_key.get_secret_value()

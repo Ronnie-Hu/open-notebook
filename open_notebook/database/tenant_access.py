@@ -14,6 +14,7 @@ from uuid import UUID
 _account: ContextVar[UUID | None] = ContextVar(
     "open_notebook_tagent_account", default=None
 )
+_role: ContextVar[str | None] = ContextVar("open_notebook_tagent_role", default=None)
 _system_operation: ContextVar[bool] = ContextVar(
     "open_notebook_tagent_system_operation", default=False
 )
@@ -24,12 +25,16 @@ def account_mode_enabled() -> bool:
 
 
 @contextmanager
-def account_scope(account_id: UUID) -> Iterator[None]:
+def account_scope(account_id: UUID, *, role: str = "student") -> Iterator[None]:
     """Bind a verified TAgent account for downstream DB calls in this task."""
+    if role not in {"student", "admin"}:
+        raise ValueError("Unrecognized TAgent account role")
     token = _account.set(account_id)
+    role_token = _role.set(role)
     try:
         yield
     finally:
+        _role.reset(role_token)
         _account.reset(token)
 
 
@@ -45,6 +50,14 @@ def migration_scope() -> Iterator[None]:
 
 def current_account() -> UUID | None:
     return _account.get()
+
+
+def current_role() -> str | None:
+    return _role.get()
+
+
+def student_account_mode() -> bool:
+    return account_mode_enabled() and current_role() != "admin"
 
 
 def in_migration_scope() -> bool:

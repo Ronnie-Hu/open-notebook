@@ -18,7 +18,9 @@ import ipaddress
 import socket
 from dataclasses import dataclass, field
 from typing import Any, Dict
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlsplit, urlunparse
+
+from open_notebook.database.tenant_access import student_account_mode
 
 # AWS's IMDSv6 metadata endpoint. Unlike the IPv4 metadata address
 # (169.254.169.254), this is a Unique Local Address, not link-local, so it is
@@ -112,6 +114,65 @@ async def validate_url(url: str, provider: str) -> None:
         raise ValueError("Invalid URL format. Check server logs for details.")
 
 
+async def validate_student_model_endpoint(url: str) -> None:
+    """Account-mode student endpoints must use HTTPS and public IPs only.
+
+    This checks the currently resolved addresses. The final network connection
+    still needs an egress rule or IP-pinned client to stop DNS rebinding.
+    """
+    parsed = urlsplit(url.strip())
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError("Student model endpoints require an external HTTPS URL")
+    try:
+        parsed.port
+    except ValueError as exc:
+        raise ValueError("Student model endpoint has an invalid port") from exc
+
+    def require_global(address: str) -> None:
+        ip = ipaddress.ip_address(address)
+        mapped = getattr(ip, "ipv4_mapped", None)
+        if not ip.is_global or (mapped is not None and not mapped.is_global):
+            raise ValueError("Student model endpoints cannot use private addresses")
+
+    try:
+        require_global(parsed.hostname)
+        return
+    except ValueError as exc:
+        try:
+            ipaddress.ip_address(parsed.hostname)
+        except ValueError:
+            pass
+        else:
+            raise exc
+
+    try:
+        addresses = await asyncio.to_thread(socket.getaddrinfo, parsed.hostname, None)
+    except socket.gaierror as exc:
+        raise ValueError(
+            "Student model endpoint hostname could not be resolved"
+        ) from exc
+    if not addresses:
+        raise ValueError("Student model endpoint hostname could not be resolved")
+    for _family, _, _, _, sockaddr in addresses:
+        require_global(str(sockaddr[0]))
+
+
+def _student_model_policy() -> bool:
+    return student_account_mode()
+
+
+async def validate_model_endpoint(url: str, provider: str) -> None:
+    if _student_model_policy():
+        await validate_student_model_endpoint(url)
+    else:
+        await validate_url(url, provider)
+
+
 async def prepare_pinned_http_target(url: str, provider: str) -> PinnedHttpTarget:
     """
     Validate ``url``, resolve DNS once, and pin the outbound target to a vetted IP.
@@ -127,6 +188,8 @@ async def prepare_pinned_http_target(url: str, provider: str) -> PinnedHttpTarge
         ValueError: If the URL is invalid, resolves to a blocked address, or
             cannot be resolved for an outbound request.
     """
+    if _student_model_policy():
+        await validate_student_model_endpoint(url)
     if not url or not url.strip():
         raise ValueError("Invalid URL: hostname could not be determined.")
 
@@ -150,7 +213,9 @@ async def prepare_pinned_http_target(url: str, provider: str) -> PinnedHttpTarge
             raise
 
     try:
-        safe_ips = await _resolve_safe_ips(hostname)
+        safe_ips = await _resolve_safe_ips(
+            hostname, public_only=_student_model_policy()
+        )
     except socket.gaierror as exc:
         raise ValueError(
             f"Could not resolve hostname '{hostname}' for outbound request."
@@ -194,7 +259,7 @@ async def prepare_pinned_http_target(url: str, provider: str) -> PinnedHttpTarge
     )
 
 
-async def _resolve_safe_ips(hostname: str) -> list[str]:
+async def _resolve_safe_ips(hostname: str, *, public_only: bool = False) -> list[str]:
     """Resolve ``hostname`` and return safe IP strings; raise on blocked addresses."""
     resolved_ips = await asyncio.to_thread(socket.getaddrinfo, hostname, None)
     safe: list[str] = []
@@ -203,11 +268,17 @@ async def _resolve_safe_ips(hostname: str) -> list[str]:
         try:
             parsed_ip = ipaddress.ip_address(ip_addr)
             _reject_dangerous_ip(parsed_ip, hostname, resolved=True)
+            mapped = getattr(parsed_ip, "ipv4_mapped", None)
+            if public_only and (
+                not parsed_ip.is_global or (mapped is not None and not mapped.is_global)
+            ):
+                raise ValueError("Student model endpoints cannot use private addresses")
             safe.append(ip_addr)
         except ValueError as inner_ve:
             if (
                 "link-local" in str(inner_ve).lower()
                 or "metadata" in str(inner_ve).lower()
+                or (public_only and "private addresses" in str(inner_ve))
             ):
                 raise
             # Skip non-IP addresses (e.g., IPv6 zones)

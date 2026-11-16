@@ -35,7 +35,7 @@ from open_notebook.utils.url_validation import (
     prepare_pinned_http_target,
 )
 from open_notebook.utils.url_validation import (
-    validate_url as validate_url,  # re-export for routers
+    validate_model_endpoint as validate_url,  # re-export for routers
 )
 
 # =============================================================================

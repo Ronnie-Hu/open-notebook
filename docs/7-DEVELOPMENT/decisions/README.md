@@ -56,5 +56,6 @@ What this makes easier, what it makes harder, what to watch. (bullets)
 | [ADR-013](ADR-013-objectmodel-get-error-contract.md) | ObjectModel.get raises NotFoundError only for a missing record | Accepted |
 | [ADR-014](ADR-014-same-host-cors-without-password.md) | Same-host CORS default when no password is set | Accepted |
 | [ADR-015](ADR-015-tagent-account-isolation.md) | Isolate Open Notebook by TAgent account | Accepted for the TAgent fork |
+| [ADR-016](ADR-016-student-model-egress.md) | Restrict student model endpoints | Accepted for the TAgent fork |
 | [PDR-001](PDR-001-single-user-first.md) | Single-user first; don't preclude multi-user | Accepted |
 | [PDR-002](PDR-002-provider-agnostic-core.md) | Provider-agnostic core by default | Accepted |

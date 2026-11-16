@@ -1,5 +1,8 @@
 """Standalone SurrealDB record-permission probe for TAgent integration design."""
 
+# The SDK exposes a broad dynamic SurrealQL result union.
+# mypy: ignore-errors
+
 import uuid
 
 from surrealdb import Surreal

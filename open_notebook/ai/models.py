@@ -15,7 +15,7 @@ from open_notebook.ai.connection_tester import normalize_anthropic_compatible_ba
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.base import ObjectModel, RecordModel
 from open_notebook.exceptions import ConfigurationError
-from open_notebook.utils.url_validation import validate_url
+from open_notebook.utils.url_validation import validate_model_endpoint
 
 ModelType = Union[LanguageModel, EmbeddingModel, SpeechToTextModel, TextToSpeechModel]
 
@@ -47,7 +47,7 @@ async def _revalidate_config_urls(config: dict, provider: str) -> None:
         value = config.get(key)
         if value:
             try:
-                await validate_url(value, provider)
+                await validate_model_endpoint(value, provider)
             except ValueError as e:
                 raise ConfigurationError(str(e)) from e
 

@@ -48,15 +48,24 @@ async def test_verified_session_maps_to_account() -> None:
 
 @pytest.mark.asyncio
 async def test_unauthorized_and_missing_session() -> None:
-    kwargs = {
-        "cookie_name": "__Host-tagent_session",
-        "base_url": "http://127.0.0.1:5001",
-        "transport": _transport(401),
-    }
     assert (
-        await verify_tagent_session(session_cookie="opaque-session", **kwargs) is None
+        await verify_tagent_session(
+            session_cookie="opaque-session",
+            cookie_name="__Host-tagent_session",
+            base_url="http://127.0.0.1:5001",
+            transport=_transport(401),
+        )
+        is None
     )
-    assert await verify_tagent_session(session_cookie="", **kwargs) is None
+    assert (
+        await verify_tagent_session(
+            session_cookie="",
+            cookie_name="__Host-tagent_session",
+            base_url="http://127.0.0.1:5001",
+            transport=_transport(401),
+        )
+        is None
+    )
 
 
 @pytest.mark.asyncio

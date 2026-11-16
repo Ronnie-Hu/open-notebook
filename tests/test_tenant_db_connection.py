@@ -1,5 +1,8 @@
 """Account mode never silently falls back to the database root identity."""
 
+# Embedded SurrealQL query results have a dynamic SDK union.
+# mypy: ignore-errors
+
 from uuid import UUID
 
 import pytest

@@ -59,6 +59,7 @@ from api.models import (
     UpdateCredentialRequest,
 )
 from open_notebook.database.repository import ensure_record_id, repo_delete, repo_query
+from open_notebook.database.tenant_access import student_account_mode
 from open_notebook.domain.credential import Credential
 from open_notebook.exceptions import (
     NotFoundError,
@@ -168,6 +169,11 @@ async def list_credentials_by_provider(provider: str):
 @router.post("", response_model=CredentialResponse, status_code=201)
 async def create_credential(request: CreateCredentialRequest):
     """Create a new credential."""
+    if student_account_mode() and request.credentials_path:
+        raise HTTPException(
+            status_code=400,
+            detail="Student accounts cannot use server credential file paths",
+        )
     try:
         require_encryption_key()
     except ValueError as e:
@@ -237,6 +243,11 @@ async def get_credential(credential_id: str):
 @router.put("/{credential_id}", response_model=CredentialResponse)
 async def update_credential(credential_id: str, request: UpdateCredentialRequest):
     """Update an existing credential."""
+    if student_account_mode() and request.credentials_path:
+        raise HTTPException(
+            status_code=400,
+            detail="Student accounts cannot use server credential file paths",
+        )
     try:
         require_encryption_key()
     except ValueError as e:
