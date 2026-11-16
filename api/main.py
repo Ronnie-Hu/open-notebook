@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from api.account_auth import TagentAccountMiddleware
 from api.auth import PasswordAuthMiddleware
 from api.cors import (
     LOCALHOST_ORIGIN_REGEX,
@@ -94,21 +95,29 @@ def _uses_same_host_cors(cors_origins_raw: str | None, password_set: bool) -> bo
 # Parsed once at module load; CORS_ORIGINS and OPEN_NOTEBOOK_PASSWORD changes
 # require a restart. A blank CORS_ORIGINS counts as unset.
 _cors_origins_raw = (os.getenv("CORS_ORIGINS") or "").strip() or None
-CORS_SAME_HOST_ONLY = _uses_same_host_cors(
+CORS_SAME_HOST_ONLY = not account_mode_enabled() and _uses_same_host_cors(
     _cors_origins_raw, bool(get_secret_from_env("OPEN_NOTEBOOK_PASSWORD"))
 )
 CORS_ALLOWED_ORIGINS = (
-    [] if CORS_SAME_HOST_ONLY else _parse_cors_origins(_cors_origins_raw or "*")
+    []
+    if account_mode_enabled() or CORS_SAME_HOST_ONLY
+    else _parse_cors_origins(_cors_origins_raw or "*")
 )
 CORS_ALLOWED_ORIGIN_REGEX = LOCALHOST_ORIGIN_REGEX if CORS_SAME_HOST_ONLY else None
-CORS_IS_DEFAULT_WILDCARD = _cors_origins_raw is None and not CORS_SAME_HOST_ONLY
+CORS_IS_DEFAULT_WILDCARD = (
+    not account_mode_enabled() and _cors_origins_raw is None and not CORS_SAME_HOST_ONLY
+)
 # Keyed on the parsed list, not on whether the env var was set: an operator
 # who explicitly sets CORS_ORIGINS=* must get the same wildcard treatment as
 # the default, or credentials would combine with a wildcard origin - the
 # exact reflect-any-Origin behavior this flag exists to prevent. The
 # same-host default doesn't grant credentials either: the frontend never
 # sends credentialed requests, so there is nothing to allow.
-CORS_ALLOW_CREDENTIALS = "*" not in CORS_ALLOWED_ORIGINS and not CORS_SAME_HOST_ONLY
+CORS_ALLOW_CREDENTIALS = (
+    not account_mode_enabled()
+    and "*" not in CORS_ALLOWED_ORIGINS
+    and not CORS_SAME_HOST_ONLY
+)
 
 # Parsed once at module load; OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB changes require a restart.
 MAX_UPLOAD_SIZE_BYTES = get_max_upload_size_bytes()
@@ -300,20 +309,29 @@ elif CORS_IS_DEFAULT_WILDCARD:
 else:
     logger.info(f"CORS allowed origins: {CORS_ALLOWED_ORIGINS}")
 
-# Add password authentication middleware first
-# Exclude /api/auth/status and /api/config from authentication
-app.add_middleware(
-    PasswordAuthMiddleware,
-    excluded_paths=[
-        "/",
-        "/health",
-        "/docs",
-        "/openapi.json",
-        "/redoc",
-        "/api/auth/status",
-        "/api/config",
-    ],
-)
+if account_mode_enabled():
+    app.add_middleware(
+        TagentAccountMiddleware,
+        verifier_url=os.getenv(
+            "OPEN_NOTEBOOK_TAGENT_VERIFIER_URL", "http://127.0.0.1:5001"
+        ),
+        cookie_name="__Host-tagent_session",
+        public_origin=os.getenv("TAGENT_PUBLIC_ORIGIN", ""),
+    )
+else:
+    # Keep the single-user password flow when account mode is disabled.
+    app.add_middleware(
+        PasswordAuthMiddleware,
+        excluded_paths=[
+            "/",
+            "/health",
+            "/docs",
+            "/openapi.json",
+            "/redoc",
+            "/api/auth/status",
+            "/api/config",
+        ],
+    )
 
 # Reject oversized request bodies before they reach auth or routing - added
 # after PasswordAuthMiddleware (so it wraps around it) so a too-large request

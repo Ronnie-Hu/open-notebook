@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Turkish README.** A Turkish translation of the README is at [docs/i18n/tr/README.md](docs/i18n/tr/README.md), linked from the README's language bar (#1549)
 
 ### Security
+- TAgent account mode now binds API requests to a loopback-verified browser session, checks Origin and CSRF on writes, and disables cross-origin API access. Account mode still refuses startup until data, files, workers, and the full UI are isolated.
 - TAgent student accounts may configure only external HTTPS model endpoints. Private or unresolved addresses and server credential file paths are rejected; administrators retain the single-user deployment's local model options. Account mode remains gated until provider SDK egress is also restricted at the network layer.
 - TAgent account mode remains behind a startup guard until every data path is isolated. Its database connection rejects unscoped requests instead of falling back to root, and process-wide model key provisioning is disabled in that mode.
 - **Dependency security updates.** Python: `pillow` 13.0.0, `filelock`, `virtualenv`, `authlib`, `aiohttp`, `pyasn1`, `mcp`, `fastmcp`, `tornado`, `certifi`, `dnspython`, `fsspec`, `multidict`, `opentelemetry-api` and the `langgraph` packages move to versions with the published fixes, and the new floors are pinned in `constraint-dependencies` so a future lock can't resolve back. Frontend: `katex` 0.19, `vite` 7.3.7, `vitest` 4.1.12, `follow-redirects` 1.16.2 and `postcss-selector-parser` 6.1.5
