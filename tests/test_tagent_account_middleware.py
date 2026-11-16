@@ -16,9 +16,12 @@ COOKIE = "__Host-tagent_session=opaque-session"
 ORIGIN = "https://tagent.example.org"
 
 
-def _app(transport: httpx.MockTransport) -> TagentAccountMiddleware:
+def _app(transport: httpx.MockTransport, provisioner=None) -> TagentAccountMiddleware:
     async def item(_request):
         return JSONResponse({"account": str(current_account()), "role": current_role()})
+
+    async def provision(_account_id):
+        return None
 
     return TagentAccountMiddleware(
         Starlette(
@@ -30,6 +33,7 @@ def _app(transport: httpx.MockTransport) -> TagentAccountMiddleware:
         verifier_url="http://127.0.0.1:5001",
         cookie_name="__Host-tagent_session",
         public_origin=ORIGIN,
+        provisioner=provisioner or provision,
         transport=transport,
     )
 
@@ -110,6 +114,22 @@ async def test_duplicate_cookies_and_unavailable_identity_fail_closed() -> None:
         assert (
             await client.get("/item", headers={"cookie": COOKIE})
         ).status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_account_provision_failure_returns_503() -> None:
+    async def unavailable(_account_id):
+        raise RuntimeError("database unavailable")
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(
+            app=_app(httpx.MockTransport(_verifier), provisioner=unavailable)
+        ),
+        base_url="http://testserver",
+    ) as client:
+        response = await client.get("/item", headers={"cookie": COOKIE})
+        assert response.status_code == 503
+        assert "database unavailable" not in response.text
 
 
 def test_middleware_requires_secure_origin_and_loopback_verifier() -> None:

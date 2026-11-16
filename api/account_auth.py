@@ -3,6 +3,7 @@
 import hmac
 from collections.abc import Awaitable, Callable
 from urllib.parse import urlsplit
+from uuid import UUID
 
 import httpx
 from starlette.datastructures import Headers
@@ -14,9 +15,11 @@ from api.tagent_identity import (
     _session_endpoint,
     verify_tagent_session,
 )
+from open_notebook.database.account_provision import ensure_account_record
 from open_notebook.database.tenant_access import account_scope
 
 SessionVerifier = Callable[..., Awaitable[TagentSession | None]]
+AccountProvisioner = Callable[[UUID], Awaitable[None]]
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 _PUBLIC_PATHS = {"/health"}
 
@@ -57,6 +60,7 @@ class TagentAccountMiddleware:
         cookie_name: str,
         public_origin: str,
         verifier: SessionVerifier = verify_tagent_session,
+        provisioner: AccountProvisioner = ensure_account_record,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         parsed = urlsplit(public_origin)
@@ -78,6 +82,7 @@ class TagentAccountMiddleware:
         self.cookie_name = cookie_name
         self.public_origin = public_origin.rstrip("/")
         self.verifier = verifier
+        self.provisioner = provisioner
         self.transport = transport
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -120,6 +125,12 @@ class TagentAccountMiddleware:
                     send, 403, b'{"detail":"Invalid request origin or CSRF token"}'
                 )
                 return
+
+        try:
+            await self.provisioner(session.account_id)
+        except Exception:
+            await _reject(send, 503, b'{"detail":"Account store unavailable"}')
+            return
 
         with account_scope(session.account_id, role=session.role):
             await self.app(scope, receive, send)
