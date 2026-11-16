@@ -21,6 +21,7 @@ from open_notebook.exceptions import (
     OpenNotebookError,
 )
 from open_notebook.graphs.chat import graph as chat_graph
+from open_notebook.graphs.tenant_checkpoint import checkpoint_thread_id
 from open_notebook.utils import token_count
 from open_notebook.utils.context_builder import build_notebook_context
 from open_notebook.utils.graph_utils import (
@@ -194,7 +195,9 @@ async def get_session(session_id: str):
         # Use sync get_state() in a thread since SqliteSaver doesn't support async
         thread_state = await asyncio.to_thread(
             chat_graph.get_state,
-            config=RunnableConfig(configurable={"thread_id": full_session_id}),
+            config=RunnableConfig(
+                configurable={"thread_id": checkpoint_thread_id(full_session_id)}
+            ),
         )
 
         # Extract messages from state
@@ -332,7 +335,9 @@ async def execute_chat(request: ExecuteChatRequest):
         # Use sync get_state() in a thread since SqliteSaver doesn't support async
         current_state = await asyncio.to_thread(
             chat_graph.get_state,
-            config=RunnableConfig(configurable={"thread_id": full_session_id}),
+            config=RunnableConfig(
+                configurable={"thread_id": checkpoint_thread_id(full_session_id)}
+            ),
         )
 
         # Prepare state for execution
@@ -361,7 +366,7 @@ async def execute_chat(request: ExecuteChatRequest):
             state_values,
             RunnableConfig(
                 configurable={
-                    "thread_id": full_session_id,
+                    "thread_id": checkpoint_thread_id(full_session_id),
                     "model_id": model_override,
                 }
             ),

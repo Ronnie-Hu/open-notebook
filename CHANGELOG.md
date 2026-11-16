@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Turkish README.** A Turkish translation of the README is at [docs/i18n/tr/README.md](docs/i18n/tr/README.md), linked from the README's language bar (#1549)
 
 ### Security
+- Account-mode notebook and source chats now use separate LangGraph checkpoint keys per verified account. The designated legacy administrator keeps the original checkpoint keys so existing messages remain accessible only through their account-scoped session records.
 - Account-mode podcast audio now uses separate directories and rejects another account's files across generation and playback paths. Only the designated legacy administrator can access original audio; the same administrator restriction now applies to legacy uploads. Windows `file://` paths from the podcast generator are resolved correctly.
 - Account-mode background jobs now carry a server-signed account context through the queue, restore that account for worker database access and nested jobs, and reject unsigned or altered jobs. Job-status reads verify ownership before returning results. Account mode remains gated while audio, checkpoints, UI, and deployment boundaries are completed.
 - Fixed Open Notebook settings now resolve to separate records for each TAgent account, including model defaults, content processing, default prompts, and legacy provider configuration. The specified legacy administrator keeps the original settings; account-mode singleton instances no longer share in-process state.

@@ -24,6 +24,7 @@ from open_notebook.exceptions import (
     OpenNotebookError,
 )
 from open_notebook.graphs.source_chat import source_chat_graph as source_chat_graph
+from open_notebook.graphs.tenant_checkpoint import checkpoint_thread_id
 from open_notebook.utils.graph_utils import (
     get_session_message_count,
     invoke_chat_turn,
@@ -216,7 +217,9 @@ async def get_source_chat_session(
         # Use sync get_state() in a thread since SqliteSaver doesn't support async
         thread_state = await asyncio.to_thread(
             source_chat_graph.get_state,
-            config=RunnableConfig(configurable={"thread_id": full_session_id}),
+            config=RunnableConfig(
+                configurable={"thread_id": checkpoint_thread_id(full_session_id)}
+            ),
         )
 
         # Extract messages from state
@@ -357,7 +360,9 @@ async def stream_source_chat_response(
         # Use sync get_state() in a thread since SqliteSaver doesn't support async
         current_state = await asyncio.to_thread(
             source_chat_graph.get_state,
-            config=RunnableConfig(configurable={"thread_id": session_id}),
+            config=RunnableConfig(
+                configurable={"thread_id": checkpoint_thread_id(session_id)}
+            ),
         )
 
         # Prepare state for execution
@@ -386,7 +391,10 @@ async def stream_source_chat_response(
             source_chat_graph,
             state_values,
             RunnableConfig(
-                configurable={"thread_id": session_id, "model_id": model_override}
+                configurable={
+                    "thread_id": checkpoint_thread_id(session_id),
+                    "model_id": model_override,
+                }
             ),
             user_message,
         )
