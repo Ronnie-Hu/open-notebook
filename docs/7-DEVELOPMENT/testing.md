@@ -39,6 +39,10 @@ without the opt-in flag. Then, in this repository, set
 test-only password; run `uv run --locked python tests/real_tagent_account_probe.py`.
 The probe checks the fixture marker before registering accounts and creates a
 fresh SurrealDB namespace on every run. Stop both local processes afterward.
+After the account-mode Next.js build, the same TAgent fixture can also be used
+with `npm run test:auth-route-tagent` in `frontend/`. That check starts the
+built Next.js server locally and exercises real registration, Secure session
+cookie forwarding, session lookup and logout through its limited auth route.
 This is an API integration check with a simulated HTTPS origin, not a browser
 or production HTTPS acceptance test.
 

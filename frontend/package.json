@@ -9,6 +9,7 @@
     "lint": "eslint src/",
     "test": "vitest run",
     "test:auth-route": "node scripts/auth-route-smoke.mjs",
+    "test:auth-route-tagent": "node scripts/auth-route-tagent-smoke.mjs",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage"
