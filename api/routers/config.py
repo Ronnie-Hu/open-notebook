@@ -8,6 +8,7 @@ from fastapi import APIRouter, Request
 from loguru import logger
 
 from open_notebook.database.repository import repo_query
+from open_notebook.database.tenant_access import account_mode_enabled
 from open_notebook.utils.version_utils import (
     compare_versions,
     get_version_from_github_async,
@@ -144,16 +145,18 @@ async def get_config(request: Request):
         # Extra safety: ensure version check never breaks the config endpoint
         logger.error(f"Unexpected error during version check: {e}")
 
-    # Check database health
-    db_health = await check_database_health()
-    db_status = db_health["status"]
-
-    if db_status == "offline":
-        logger.warning(f"Database offline: {db_health.get('error', 'Unknown error')}")
-
-    return {
+    result = {
         "version": current_version,
         "latestVersion": latest_version,
         "hasUpdate": has_update,
-        "dbStatus": db_status,
     }
+    # This endpoint is public so the login page can load. A tenant database
+    # query needs a verified account; an unauthenticated probe would report a
+    # healthy database as offline and block the login UI.
+    if account_mode_enabled():
+        return result
+
+    db_health = await check_database_health()
+    if db_health["status"] == "offline":
+        logger.warning(f"Database offline: {db_health.get('error', 'Unknown error')}")
+    return {**result, "dbStatus": db_health["status"]}
