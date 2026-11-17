@@ -8,6 +8,7 @@
     "start": "node start-server.js",
     "lint": "eslint src/",
     "test": "vitest run",
+    "test:auth-route": "node scripts/auth-route-smoke.mjs",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage"
