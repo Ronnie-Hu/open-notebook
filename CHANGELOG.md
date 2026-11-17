@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Turkish README.** A Turkish translation of the README is at [docs/i18n/tr/README.md](docs/i18n/tr/README.md), linked from the README's language bar (#1549)
 
 ### Security
+- Pin SoupSieve to a release with the upstream denial-of-service fixes for HTML selector parsing; source installs now require Python 3.11.5 or newer.
 - The complete Next.js interface now supports TAgent email accounts without storing the shared notebook password. Its API and streaming requests forward the verified host cookie, CSRF and active-account claim through the same HTTPS origin; a changed account forces reload. Registration is available from the notebook login screen. Account mode remains gated pending full-stack isolation and HTTPS deployment verification.
 - Account-mode notebook and source chats now use separate LangGraph checkpoint keys per verified account. The designated legacy administrator keeps the original checkpoint keys so existing messages remain accessible only through their account-scoped session records.
 - Account-mode podcast audio now uses separate directories and rejects another account's files across generation and playback paths. Only the designated legacy administrator can access original audio; the same administrator restriction now applies to legacy uploads. Windows `file://` paths from the podcast generator are resolved correctly.

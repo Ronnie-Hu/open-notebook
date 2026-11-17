@@ -13,7 +13,7 @@ A source install runs four processes, each in its own terminal:
 
 ## Prerequisites
 
-- **Python 3.11 or 3.12.** 3.13 and later are not supported yet (`pyproject.toml` requires `>=3.11,<3.13`). uv can install a matching Python for you.
+- **Python 3.11.5 or newer within 3.11, or Python 3.12.** 3.13 and later are not supported yet (`pyproject.toml` requires `>=3.11.5,<3.13`). uv can install a matching Python for you.
 - **uv**: `curl -LsSf https://astral.sh/uv/install.sh | sh` ([other install methods](https://docs.astral.sh/uv/getting-started/installation/))
 - **Node.js 20.9 or later** (22 LTS recommended; CI uses 22). Next.js 16 refuses older versions.
 - **Git**
