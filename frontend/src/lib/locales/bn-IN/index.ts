@@ -193,6 +193,13 @@ export const bnIN = {
   auth: {
     loginTitle: "ওপেন নোটবুক",
     loginDesc: "অ্যাপ্লিকেশন অ্যাক্সেস করতে আপনার পাসওয়ার্ড লিখুন",
+    accountLoginDesc: "TAgent ইমেল ও পাসওয়ার্ড দিয়ে সাইন ইন করুন",
+    emailPlaceholder: "ইমেল",
+    createAccount: "অ্যাকাউন্ট তৈরি করুন",
+    backToLogin: "সাইন ইনে ফিরুন",
+    registrationSuccess: "অ্যাকাউন্ট তৈরি হয়েছে। এখন সাইন ইন করতে পারবেন।",
+    registrationFailed: "অ্যাকাউন্ট তৈরি করা যায়নি। তথ্য যাচাই করুন।",
+    accountLoginFailed: "সাইন ইন করা যায়নি। ইমেল ও পাসওয়ার্ড যাচাই করুন।",
     passwordPlaceholder: "পাসওয়ার্ড",
     signingIn: "সাইন ইন করা হচ্ছে...",
     signIn: "সাইন ইন",

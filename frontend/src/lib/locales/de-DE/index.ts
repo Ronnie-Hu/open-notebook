@@ -196,6 +196,13 @@ export const deDE = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "Gib dein Passwort ein, um auf die Anwendung zuzugreifen",
+    accountLoginDesc: "Mit TAgent-E-Mail und Passwort anmelden",
+    emailPlaceholder: "E-Mail",
+    createAccount: "Konto erstellen",
+    backToLogin: "Zurück zur Anmeldung",
+    registrationSuccess: "Konto erstellt. Sie können sich jetzt anmelden.",
+    registrationFailed: "Konto konnte nicht erstellt werden. Bitte Angaben prüfen.",
+    accountLoginFailed: "Anmeldung fehlgeschlagen. Bitte E-Mail und Passwort prüfen.",
     passwordPlaceholder: "Passwort",
     signingIn: "Anmelden...",
     signIn: "Anmelden",

@@ -2,7 +2,10 @@
 // (localStorage key `auth-storage`, written by `src/lib/stores/auth-store.ts`).
 // Single source of truth for the token-parsing ritual — use this instead of
 // re-reading localStorage directly.
+import { isTagentAccountMode } from '@/lib/tagent-session'
+
 export function getAuthToken(): string | null {
+  if (isTagentAccountMode()) return null
   if (typeof window === 'undefined') {
     return null
   }

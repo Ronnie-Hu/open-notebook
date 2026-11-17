@@ -319,7 +319,7 @@ class TestNoDriftFromBundledTemplates:
         # are declared, so they are excluded.
         from jinja2 import Environment, meta
 
-        ast = Environment().parse(path.read_text())
+        ast = Environment().parse(path.read_text(encoding="utf-8"))
         return set(meta.find_undeclared_variables(ast)) - cls.JINJA_KEYWORDS
 
     def test_jinja_keywords_are_not_treated_as_variables(self):

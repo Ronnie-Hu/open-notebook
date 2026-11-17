@@ -193,6 +193,13 @@ export const caES = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "Introdueix la teva contrasenya per accedir a l'aplicació",
+    accountLoginDesc: "Inicia sessió amb el correu i la contrasenya de TAgent",
+    emailPlaceholder: "Correu electrònic",
+    createAccount: "Crea un compte",
+    backToLogin: "Torna a l'inici de sessió",
+    registrationSuccess: "Compte creat. Ja pots iniciar sessió.",
+    registrationFailed: "No s'ha pogut crear el compte. Revisa les dades.",
+    accountLoginFailed: "No s'ha pogut iniciar sessió. Comprova el correu i la contrasenya.",
     passwordPlaceholder: "Contrasenya",
     signingIn: "S'està iniciant la sessió...",
     signIn: "Inicia la sessió",

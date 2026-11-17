@@ -193,6 +193,13 @@ export const ruRU = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "Введите пароль для доступа к приложению",
+    accountLoginDesc: "Войдите с почтой и паролем TAgent",
+    emailPlaceholder: "Электронная почта",
+    createAccount: "Создать аккаунт",
+    backToLogin: "Назад ко входу",
+    registrationSuccess: "Аккаунт создан. Теперь можно войти.",
+    registrationFailed: "Не удалось создать аккаунт. Проверьте данные.",
+    accountLoginFailed: "Не удалось войти. Проверьте почту и пароль.",
     passwordPlaceholder: "Пароль",
     signingIn: "Вход...",
     signIn: "Войти",

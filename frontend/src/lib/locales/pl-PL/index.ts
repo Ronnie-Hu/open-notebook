@@ -193,6 +193,13 @@ export const plPL = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "Wpisz hasło, aby uzyskać dostęp do aplikacji",
+    accountLoginDesc: "Zaloguj się adresem e-mail i hasłem TAgent",
+    emailPlaceholder: "E-mail",
+    createAccount: "Utwórz konto",
+    backToLogin: "Wróć do logowania",
+    registrationSuccess: "Konto utworzone. Możesz się teraz zalogować.",
+    registrationFailed: "Nie udało się utworzyć konta. Sprawdź dane.",
+    accountLoginFailed: "Nie udało się zalogować. Sprawdź adres e-mail i hasło.",
     passwordPlaceholder: "Hasło",
     signingIn: "Logowanie...",
     signIn: "Zaloguj się",

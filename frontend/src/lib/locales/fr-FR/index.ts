@@ -193,6 +193,13 @@ export const frFR = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "Entrez votre mot de passe pour accéder à l'application",
+    accountLoginDesc: "Connectez-vous avec votre adresse e-mail et votre mot de passe TAgent",
+    emailPlaceholder: "Adresse e-mail",
+    createAccount: "Créer un compte",
+    backToLogin: "Retour à la connexion",
+    registrationSuccess: "Compte créé. Vous pouvez maintenant vous connecter.",
+    registrationFailed: "Impossible de créer le compte. Vérifiez vos informations.",
+    accountLoginFailed: "Connexion impossible. Vérifiez votre adresse e-mail et votre mot de passe.",
     passwordPlaceholder: "Mot de passe",
     signingIn: "Connexion...",
     signIn: "Se connecter",

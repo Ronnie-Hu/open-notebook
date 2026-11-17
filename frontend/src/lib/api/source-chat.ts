@@ -1,5 +1,6 @@
 import apiClient from './client'
 import { getAuthToken } from '@/lib/auth-token'
+import { tagentAccountHeaders, tagentWriteHeaders } from '@/lib/tagent-session'
 import {
   SourceChatSession,
   SourceChatSessionWithMessages,
@@ -60,7 +61,9 @@ export const sourceChatApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` })
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...tagentWriteHeaders(),
+        ...tagentAccountHeaders()
       },
       body: JSON.stringify(data)
     }).then(response => {

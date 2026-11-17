@@ -19,7 +19,7 @@ PAGE = "https://example.com/article"
 @pytest.fixture(autouse=True)
 def _uploads_in_tmp(monkeypatch):
     # content_process only reads files inside the uploads folder.
-    monkeypatch.setattr(source_graph, "UPLOADS_FOLDER", "/tmp")
+    monkeypatch.setattr("open_notebook.storage.tenant_paths.UPLOADS_FOLDER", "/tmp")
 
 
 async def _run(state, extract):

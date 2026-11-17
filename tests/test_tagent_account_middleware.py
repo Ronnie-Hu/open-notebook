@@ -28,6 +28,8 @@ def _app(transport: httpx.MockTransport, provisioner=None) -> TagentAccountMiddl
             routes=[
                 Route("/item", item, methods=["GET", "POST"]),
                 Route("/health", item),
+                Route("/api/config", item),
+                Route("/api/auth/status", item),
             ]
         ),
         verifier_url="http://127.0.0.1:5001",
@@ -64,13 +66,21 @@ async def test_verified_account_is_bound_for_only_this_request() -> None:
     ) as client:
         response = await client.get(
             "/item",
-            headers={"cookie": COOKIE, "x-tagent-account-id": "forged"},
+            headers={"cookie": COOKIE},
         )
         assert response.status_code == 200
         assert response.json() == {"account": str(ACCOUNT_ID), "role": "student"}
+        assert (
+            await client.get(
+                "/item", headers={"cookie": COOKIE, "x-tagent-account-id": "forged"}
+            )
+        ).status_code == 409
         assert current_account() is None
         assert (await client.get("/item")).status_code == 401
         assert (await client.get("/health")).status_code == 200
+        assert (await client.get("/api/config")).status_code == 200
+        assert (await client.get("/api/auth/status")).status_code == 200
+        assert (await client.get("/api/notebooks")).status_code == 401
 
 
 @pytest.mark.asyncio

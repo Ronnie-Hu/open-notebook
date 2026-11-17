@@ -5,6 +5,7 @@ Provides endpoints to check authentication status.
 
 from fastapi import APIRouter
 
+from open_notebook.database.tenant_access import account_mode_enabled
 from open_notebook.utils.encryption import get_secret_from_env
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -17,10 +18,12 @@ async def get_auth_status():
     Returns whether a password is required to access the API.
     Supports Docker secrets via OPEN_NOTEBOOK_PASSWORD_FILE.
     """
-    auth_enabled = bool(get_secret_from_env("OPEN_NOTEBOOK_PASSWORD"))
+    account_mode = account_mode_enabled()
+    auth_enabled = account_mode or bool(get_secret_from_env("OPEN_NOTEBOOK_PASSWORD"))
 
     return {
         "auth_enabled": auth_enabled,
+        "mode": "tagent" if account_mode else "password" if auth_enabled else "none",
         "message": "Authentication is required"
         if auth_enabled
         else "Authentication is disabled",

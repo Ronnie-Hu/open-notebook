@@ -3,6 +3,9 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import apiClient from '@/lib/api/client'
 import { getApiUrl } from '@/lib/config'
+import { clearTagentCsrf, setTagentAccountId, setTagentAccountMode, setTagentCsrf, tagentWriteHeaders } from '@/lib/tagent-session'
+
+type AuthMode = 'tagent' | 'password' | 'none'
 
 interface AuthState {
   isAuthenticated: boolean
@@ -13,11 +16,13 @@ interface AuthState {
   isCheckingAuth: boolean
   hasHydrated: boolean
   authRequired: boolean | null
+  authMode: AuthMode | null
+  authValidated: boolean
   setHasHydrated: (state: boolean) => void
   checkAuthRequired: () => Promise<boolean>
-  login: (password: string) => Promise<boolean>
-  logout: () => void
-  checkAuth: () => Promise<boolean>
+  login: (password: string, email?: string) => Promise<boolean>
+  logout: () => Promise<void>
+  checkAuth: (force?: boolean) => Promise<boolean>
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -31,6 +36,8 @@ export const useAuthStore = create<AuthState>()(
       isCheckingAuth: false,
       hasHydrated: false,
       authRequired: null,
+      authMode: null,
+      authValidated: false,
 
       setHasHydrated: (state: boolean) => {
         set({ hasHydrated: state })
@@ -38,12 +45,15 @@ export const useAuthStore = create<AuthState>()(
 
       checkAuthRequired: async () => {
         try {
-          const response = await apiClient.get<{ auth_enabled?: boolean }>('/auth/status', {
+          const response = await apiClient.get<{ auth_enabled?: boolean; mode?: AuthMode }>('/auth/status', {
             headers: { 'Cache-Control': 'no-store' },
           })
 
           const required = response.data.auth_enabled || false
-          set({ authRequired: required })
+          const mode = response.data.mode === 'tagent' ? 'tagent' : required ? 'password' : 'none'
+          setTagentAccountMode(mode === 'tagent')
+          set({ authRequired: required, authMode: mode, authValidated: !required,
+            ...(mode === 'tagent' ? { token: null, isAuthenticated: false } : {}) })
 
           // If auth is not required, mark as authenticated
           if (!required) {
@@ -62,7 +72,7 @@ export const useAuthStore = create<AuthState>()(
             })
           } else {
             // For other errors, default to requiring auth to be safe
-            set({ authRequired: true })
+            set({ authRequired: true, authValidated: true })
           }
 
           // Re-throw the error so the UI can handle it
@@ -70,9 +80,25 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      login: async (password: string) => {
+      login: async (password: string, email?: string) => {
         set({ isLoading: true, error: null })
         try {
+          if (get().authMode === 'tagent') {
+            const response = await fetch('/agent-api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ identifier: email, password }),
+            })
+            if (!response.ok) {
+              set({ error: 'account-login-failed', isLoading: false, isAuthenticated: false })
+              return false
+            }
+            const session: { csrf: string; user: { id: string } } = await response.json()
+            setTagentCsrf(session.csrf)
+            setTagentAccountId(session.user.id)
+            set({ isAuthenticated: true, token: null, isLoading: false, lastAuthCheck: Date.now() })
+            return true
+          }
           const apiUrl = await getApiUrl()
 
           // Deliberately raw fetch (not apiClient): this probes a candidate
@@ -137,7 +163,15 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       
-      logout: () => {
+      logout: async () => {
+        if (get().authMode === 'tagent') {
+          const response = await fetch('/agent-api/auth/logout', {
+            method: 'POST',
+            headers: tagentWriteHeaders(),
+          })
+          if (!response.ok && response.status !== 401) throw new Error('Unable to sign out')
+          clearTagentCsrf()
+        }
         set({ 
           isAuthenticated: false, 
           token: null, 
@@ -145,7 +179,7 @@ export const useAuthStore = create<AuthState>()(
         })
       },
       
-      checkAuth: async () => {
+      checkAuth: async (force = false) => {
         const state = get()
         const { token, lastAuthCheck, isCheckingAuth, isAuthenticated } = state
 
@@ -155,19 +189,36 @@ export const useAuthStore = create<AuthState>()(
         }
 
         // If no token, not authenticated
-        if (!token) {
+        if (!token && state.authMode !== 'tagent') {
+          set({ isAuthenticated: false, authValidated: true })
           return false
         }
 
         // If we checked recently (within 30 seconds) and are authenticated, skip
         const now = Date.now()
-        if (isAuthenticated && lastAuthCheck && (now - lastAuthCheck) < 30000) {
+        if (!force && isAuthenticated && lastAuthCheck && (now - lastAuthCheck) < 30000) {
           return true
         }
 
-        set({ isCheckingAuth: true })
+        set({ isCheckingAuth: true, authValidated: false })
 
         try {
+          if (state.authMode === 'tagent') {
+            const response = await fetch('/agent-api/auth/me', { cache: 'no-store' })
+            if (!response.ok) {
+              clearTagentCsrf()
+              set({ isAuthenticated: false, token: null, lastAuthCheck: null, isCheckingAuth: false, authValidated: true })
+              return false
+            }
+            const session: { csrf: string; user: { id: string } } = await response.json()
+            if (setTagentAccountId(session.user.id)) {
+              window.location.reload()
+              return false
+            }
+            setTagentCsrf(session.csrf)
+            set({ isAuthenticated: true, token: null, lastAuthCheck: now, isCheckingAuth: false, authValidated: true })
+            return true
+          }
           const apiUrl = await getApiUrl()
 
           // Deliberately raw fetch (not apiClient): a 401 here must update
@@ -184,7 +235,8 @@ export const useAuthStore = create<AuthState>()(
             set({ 
               isAuthenticated: true, 
               lastAuthCheck: now,
-              isCheckingAuth: false 
+              isCheckingAuth: false,
+              authValidated: true
             })
             return true
           } else {
@@ -192,7 +244,8 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: false,
               token: null,
               lastAuthCheck: null,
-              isCheckingAuth: false
+              isCheckingAuth: false,
+              authValidated: true
             })
             return false
           }
@@ -202,7 +255,8 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false, 
             token: null,
             lastAuthCheck: null,
-            isCheckingAuth: false 
+            isCheckingAuth: false,
+            authValidated: true
           })
           return false
         }
@@ -211,8 +265,8 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'auth-storage',
       partialize: (state) => ({
-        token: state.token,
-        isAuthenticated: state.isAuthenticated
+        token: state.authMode === 'tagent' ? null : state.token,
+        isAuthenticated: state.authMode === 'tagent' ? false : state.isAuthenticated
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true)

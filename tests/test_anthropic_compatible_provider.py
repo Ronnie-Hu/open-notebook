@@ -147,7 +147,9 @@ async def test_model_manager_maps_normalized_url_to_anthropic_factory(
     with (
         patch.object(Model, "get", AsyncMock(return_value=model)),
         patch.object(Model, "get_credential_obj", AsyncMock(return_value=credential)),
-        patch("open_notebook.ai.models.validate_url", AsyncMock()) as validate_url_mock,
+        patch(
+            "open_notebook.ai.models.validate_model_endpoint", AsyncMock()
+        ) as validate_url_mock,
         patch(
             "open_notebook.ai.models.AIFactory.create_language",
             return_value=factory_model,

@@ -68,6 +68,7 @@ async function fetchConfig(): Promise<AppConfig> {
   // This allows API_URL to be set at runtime (not baked into build)
   // Note: Endpoint is at /config (not /api/config) to avoid reverse proxy conflicts
   let runtimeApiUrl: string | null = null
+  let accountMode = false
   try {
     if (isDev) console.log('🔧 [Config] Attempting to fetch runtime config from /config endpoint...')
     const runtimeResponse = await fetch('/config', {
@@ -75,6 +76,7 @@ async function fetchConfig(): Promise<AppConfig> {
     })
     if (runtimeResponse.ok) {
       const runtimeData = await runtimeResponse.json()
+      accountMode = runtimeData.accountMode === true
       runtimeApiUrl = runtimeData.apiUrl
       // Treat empty string as "not set" to allow fallback to env var or default
       if (runtimeApiUrl === '') {
@@ -102,7 +104,7 @@ async function fetchConfig(): Promise<AppConfig> {
 
   // Priority: Runtime config > Build-time env var > Smart default
   // Note: runtimeApiUrl must be checked against null explicitly as empty string might be valid if intended (though we treat '' as null above)
-  const selectedUrl = runtimeApiUrl !== null && runtimeApiUrl !== undefined ? runtimeApiUrl : (envApiUrl || defaultApiUrl)
+  const selectedUrl = accountMode ? '' : runtimeApiUrl !== null && runtimeApiUrl !== undefined ? runtimeApiUrl : (envApiUrl || defaultApiUrl)
   // Every caller appends "/api" itself, so an API URL that already ends with it
   // (NEXT_PUBLIC_API_URL=/api) is kept without it - otherwise requests go to /api/api/...
   const baseUrl = selectedUrl.replace(/\/api\/?$/, '')

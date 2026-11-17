@@ -53,7 +53,7 @@ async def test_compatible_podcast_model_reaches_its_endpoint(
         patch.object(Model, "get", AsyncMock(return_value=model)),
         patch.object(Model, "get_credential_obj", AsyncMock(return_value=credential)),
         patch("open_notebook.ai.key_provider.provision_provider_keys", AsyncMock()),
-        patch("open_notebook.ai.models.validate_url", AsyncMock()),
+        patch("open_notebook.ai.models.validate_model_endpoint", AsyncMock()),
     ):
         provider, name, config = await getattr(profile, resolver)()
 
@@ -95,7 +95,7 @@ async def test_incomplete_compatible_config_cannot_fall_back_to_anthropic(
         patch.object(Model, "get", AsyncMock(return_value=model)),
         patch.object(Model, "get_credential_obj", AsyncMock(return_value=credential)),
         patch("open_notebook.ai.key_provider.provision_provider_keys", AsyncMock()),
-        patch("open_notebook.ai.models.validate_url", AsyncMock()),
+        patch("open_notebook.ai.models.validate_model_endpoint", AsyncMock()),
         pytest.raises(ConfigurationError, match="require a base URL and API key"),
     ):
         await _resolve_model_config("model:incomplete")
@@ -156,7 +156,7 @@ async def test_both_paths_reject_invalid_compatible_environment(
     with (
         patch.object(Model, "get", AsyncMock(return_value=model)),
         patch("open_notebook.ai.key_provider.provision_provider_keys", AsyncMock()),
-        patch("open_notebook.ai.models.validate_url", validator),
+        patch("open_notebook.ai.models.validate_model_endpoint", validator),
         patch("open_notebook.ai.models.AIFactory.create_language") as factory,
     ):
         with pytest.raises(ConfigurationError):
@@ -186,7 +186,9 @@ async def test_compatible_config_rejects_explicit_none(field, via_override):
         config[field] = None
 
     with (
-        patch("open_notebook.ai.models.validate_url", AsyncMock()) as validator,
+        patch(
+            "open_notebook.ai.models.validate_model_endpoint", AsyncMock()
+        ) as validator,
         pytest.raises(ConfigurationError, match="require a base URL and API key"),
     ):
         await resolve_anthropic_compatible_config(config, **overrides)

@@ -1,6 +1,7 @@
 import axios, { AxiosResponse } from 'axios'
 import { getApiUrl } from '@/lib/config'
 import { getAuthToken } from '@/lib/auth-token'
+import { isTagentAccountMode, tagentAccountHeaders, tagentWriteHeaders } from '@/lib/tagent-session'
 
 // API client with runtime-configurable base URL
 // The base URL is fetched from the API config endpoint on first request
@@ -40,7 +41,16 @@ apiClient.interceptors.request.use(async (config) => {
   }
 
   const token = getAuthToken()
-  if (token) {
+  if (isTagentAccountMode()) {
+    config.withCredentials = true
+    delete config.headers.Authorization
+    const accountId = tagentAccountHeaders()['X-Tagent-Account-Id']
+    if (accountId) config.headers.set('X-Tagent-Account-Id', accountId)
+    if (config.method && !['get', 'head', 'options'].includes(config.method.toLowerCase())) {
+      const csrf = tagentWriteHeaders()['X-Tagent-CSRF']
+      if (csrf) config.headers.set('X-Tagent-CSRF', csrf)
+    }
+  } else if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
 
@@ -59,11 +69,15 @@ apiClient.interceptors.request.use(async (config) => {
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error) => {
+    if (error.response?.status === 409 && isTagentAccountMode() && typeof window !== 'undefined') {
+      window.location.reload()
+    }
     if (error.response?.status === 401) {
       // Clear auth and redirect to login
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('auth-storage')
-        window.location.href = '/login'
+        if (!window.location.pathname.endsWith('/login')) {
+          window.location.href = '/login'
+        }
       }
     }
     return Promise.reject(error)

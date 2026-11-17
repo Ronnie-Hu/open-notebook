@@ -6,6 +6,7 @@ from starlette.responses import Response
 from starlette.types import Receive, Scope, Send
 
 from api.auth import PasswordAuthMiddleware
+from api.routers.auth import get_auth_status
 
 
 async def _unused_app(_: Scope, __: Receive, ___: Send) -> None:
@@ -86,3 +87,14 @@ class TestNonAsciiPassword:
         status = await _request(monkeypatch, password="secret", credentials=b"\xff")
 
         assert status == 401
+
+
+@pytest.mark.asyncio
+async def test_account_mode_status_does_not_require_a_shared_password(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPEN_NOTEBOOK_TAGENT_ACCOUNT_MODE", "1")
+    monkeypatch.delenv("OPEN_NOTEBOOK_PASSWORD", raising=False)
+    status = await get_auth_status()
+    assert status["auth_enabled"] is True
+    assert status["mode"] == "tagent"

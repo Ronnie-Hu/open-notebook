@@ -193,6 +193,13 @@ export const ptBR = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "Digite sua senha para acessar o aplicativo",
+    accountLoginDesc: "Entre com seu e-mail e senha do TAgent",
+    emailPlaceholder: "E-mail",
+    createAccount: "Criar conta",
+    backToLogin: "Voltar ao login",
+    registrationSuccess: "Conta criada. Você já pode entrar.",
+    registrationFailed: "Não foi possível criar a conta. Confira os dados.",
+    accountLoginFailed: "Não foi possível entrar. Confira seu e-mail e senha.",
     passwordPlaceholder: "Senha",
     signingIn: "Entrando...",
     signIn: "Entrar",

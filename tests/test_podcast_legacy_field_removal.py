@@ -47,7 +47,7 @@ class TestMigration22Content:
         """Best-effort mapping (provider + name + type against `model`) must
         appear for all three reference fields, guarded so already-migrated
         rows are untouched."""
-        sql = (MIGRATIONS_DIR / "22.surrealql").read_text()
+        sql = (MIGRATIONS_DIR / "22.surrealql").read_text(encoding="utf-8")
 
         assert 'type = "language"' in sql
         assert 'type = "text_to_speech"' in sql
@@ -65,7 +65,7 @@ class TestMigration22Content:
         )
 
     def test_up_clears_values_then_drops_all_six_fields(self):
-        sql = (MIGRATIONS_DIR / "22.surrealql").read_text()
+        sql = (MIGRATIONS_DIR / "22.surrealql").read_text(encoding="utf-8")
 
         # Stored values are cleared while the fields are still defined...
         assert "UPDATE episode_profile UNSET outline_provider" in sql
@@ -81,7 +81,7 @@ class TestMigration22Content:
     def test_down_redefines_fields_as_optional_strings(self):
         """Rollback is a documented best effort: the schema shape returns
         (option<string>, the state migration 14 left) but the data does not."""
-        sql = (MIGRATIONS_DIR / "22_down.surrealql").read_text()
+        sql = (MIGRATIONS_DIR / "22_down.surrealql").read_text(encoding="utf-8")
 
         for field in EPISODE_LEGACY_FIELDS:
             assert (
@@ -111,5 +111,5 @@ class TestLegacyFieldsGone:
             import open_notebook.podcasts.migration  # noqa: F401
 
     def test_api_lifespan_no_longer_calls_podcast_migration(self):
-        source = Path("api/main.py").read_text()
+        source = Path("api/main.py").read_text(encoding="utf-8")
         assert "migrate_podcast_profiles" not in source

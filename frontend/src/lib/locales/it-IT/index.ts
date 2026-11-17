@@ -193,6 +193,13 @@ export const itIT = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "Inserisci la password per accedere all'applicazione",
+    accountLoginDesc: "Accedi con email e password TAgent",
+    emailPlaceholder: "Email",
+    createAccount: "Crea account",
+    backToLogin: "Torna all'accesso",
+    registrationSuccess: "Account creato. Ora puoi accedere.",
+    registrationFailed: "Impossibile creare l'account. Controlla i dati.",
+    accountLoginFailed: "Accesso non riuscito. Controlla email e password.",
     passwordPlaceholder: "Password",
     signingIn: "Accesso in corso...",
     signIn: "Accedi",

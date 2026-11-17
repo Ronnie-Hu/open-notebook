@@ -1,5 +1,6 @@
 import apiClient from './client'
 import { getAuthToken } from '@/lib/auth-token'
+import { tagentAccountHeaders, tagentWriteHeaders } from '@/lib/tagent-session'
 import { SearchRequest, SearchResponse, AskRequest } from '@/lib/types/search'
 
 export const searchApi = {
@@ -23,7 +24,9 @@ export const searchApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...tagentWriteHeaders(),
+        ...tagentAccountHeaders()
       },
       body: JSON.stringify(params),
       signal

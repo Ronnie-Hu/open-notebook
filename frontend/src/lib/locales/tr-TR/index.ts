@@ -193,6 +193,13 @@ export const trTR = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "Uygulamaya erişmek için şifrenizi girin",
+    accountLoginDesc: "TAgent e-posta adresiniz ve şifrenizle giriş yapın",
+    emailPlaceholder: "E-posta",
+    createAccount: "Hesap oluştur",
+    backToLogin: "Girişe dön",
+    registrationSuccess: "Hesap oluşturuldu. Şimdi giriş yapabilirsiniz.",
+    registrationFailed: "Hesap oluşturulamadı. Bilgileri kontrol edin.",
+    accountLoginFailed: "Giriş yapılamadı. E-posta ve şifrenizi kontrol edin.",
     passwordPlaceholder: "Şifre",
     signingIn: "Giriş yapılıyor...",
     signIn: "Giriş Yap",

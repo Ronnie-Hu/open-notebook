@@ -21,7 +21,7 @@ from open_notebook.database.tenant_access import account_scope
 SessionVerifier = Callable[..., Awaitable[TagentSession | None]]
 AccountProvisioner = Callable[[UUID], Awaitable[None]]
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-_PUBLIC_PATHS = {"/health"}
+_PUBLIC_PATHS = {"/health", "/api/config", "/api/auth/status"}
 
 
 def _session_cookie(headers: Headers, name: str) -> str:
@@ -112,6 +112,10 @@ class TagentAccountMiddleware:
             return
         if session is None:
             await _reject(send, 401, b'{"detail":"Login required"}')
+            return
+        claimed_account = headers.get("x-tagent-account-id", "")
+        if claimed_account and claimed_account != str(session.account_id):
+            await _reject(send, 409, b'{"detail":"Account changed; reload required"}')
             return
         if method not in _SAFE_METHODS:
             origin = headers.get("origin", "").rstrip("/")

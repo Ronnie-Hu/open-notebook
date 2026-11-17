@@ -61,6 +61,10 @@ function extractHostname(hostHeader: string): string | null {
  * This allows the same Docker image to work in different deployment scenarios.
  */
 export async function GET(request: NextRequest) {
+  // Account mode keeps requests on the HTTPS host that owns the session cookie.
+  if (process.env.OPEN_NOTEBOOK_TAGENT_ACCOUNT_MODE === '1') {
+    return NextResponse.json({ apiUrl: '', accountMode: true })
+  }
   // Priority 1: Check if API_URL is explicitly set
   const envApiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL
 

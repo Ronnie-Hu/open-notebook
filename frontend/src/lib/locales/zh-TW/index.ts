@@ -193,6 +193,13 @@ export const zhTW = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "輸入密碼以存取應用程式",
+    accountLoginDesc: "使用 TAgent 電子郵件與密碼登入",
+    emailPlaceholder: "電子郵件",
+    createAccount: "建立帳號",
+    backToLogin: "返回登入",
+    registrationSuccess: "帳號已建立，現在可以登入。",
+    registrationFailed: "建立帳號失敗，請檢查填寫的資料。",
+    accountLoginFailed: "登入失敗，請檢查電子郵件和密碼。",
     passwordPlaceholder: "密碼",
     signingIn: "正在登入...",
     signIn: "登入",

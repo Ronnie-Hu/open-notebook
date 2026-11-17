@@ -191,6 +191,13 @@ export const enUS = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "Enter your password to access the application",
+    accountLoginDesc: "Sign in with your TAgent email and password",
+    emailPlaceholder: "Email",
+    createAccount: "Create account",
+    backToLogin: "Back to sign in",
+    registrationSuccess: "Account created. You can sign in now.",
+    registrationFailed: "Unable to create account. Check your details.",
+    accountLoginFailed: "Unable to sign in. Check your email and password.",
     passwordPlaceholder: "Password",
     signingIn: "Signing in...",
     signIn: "Sign In",

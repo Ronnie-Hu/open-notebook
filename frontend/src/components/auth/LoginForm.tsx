@@ -15,8 +15,12 @@ import { useTranslation } from '@/lib/hooks/use-translation'
 export function LoginForm() {
   const { t, language } = useTranslation()
   const [password, setPassword] = useState('')
+  const [email, setEmail] = useState('')
+  const [creatingAccount, setCreatingAccount] = useState(false)
+  const [registrationMessage, setRegistrationMessage] = useState('')
+  const [registrationError, setRegistrationError] = useState('')
   const { login, isLoading, error } = useAuth()
-  const { authRequired, checkAuthRequired, hasHydrated, isAuthenticated } = useAuthStore()
+  const { authRequired, authMode, checkAuthRequired, hasHydrated, isAuthenticated } = useAuthStore()
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [configInfo, setConfigInfo] = useState<{ apiUrl: string; version: string; buildTime: string } | null>(null)
   const router = useRouter()
@@ -58,7 +62,7 @@ export function LoginForm() {
 
     // If we already know auth status, use it
     if (authRequired !== null) {
-      if (!authRequired && isAuthenticated) {
+      if (isAuthenticated && (!authRequired || authMode === 'tagent')) {
         router.push('/notebooks')
       } else {
         setIsCheckingAuth(false)
@@ -66,7 +70,7 @@ export function LoginForm() {
     } else {
       void checkAuth()
     }
-  }, [hasHydrated, authRequired, checkAuthRequired, router, isAuthenticated])
+  }, [hasHydrated, authRequired, authMode, checkAuthRequired, router, isAuthenticated])
 
   // Show loading while checking if auth is required
   if (!hasHydrated || isCheckingAuth) {
@@ -129,7 +133,23 @@ export function LoginForm() {
     e.preventDefault()
     if (password.trim()) {
       try {
-        await login(password)
+        if (authMode === 'tagent' && creatingAccount) {
+          setRegistrationError('')
+          const response = await fetch('/agent-api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          })
+          if (!response.ok) {
+            setRegistrationError(t('auth.registrationFailed'))
+            return
+          }
+          setRegistrationMessage(t('auth.registrationSuccess'))
+          setCreatingAccount(false)
+          setPassword('')
+        } else {
+          await login(password, email)
+        }
       } catch (error) {
         console.error('Unhandled error during login:', error)
         // The auth store should handle most errors, but this catches any unhandled ones
@@ -143,11 +163,23 @@ export function LoginForm() {
         <CardHeader className="text-center">
           <CardTitle>{t('auth.loginTitle')}</CardTitle>
           <CardDescription>
-            {t('auth.loginDesc')}
+            {authMode === 'tagent' ? t('auth.accountLoginDesc') : t('auth.loginDesc')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {authMode === 'tagent' && (
+              <Input
+                type="email"
+                autoComplete="email"
+                required
+                placeholder={t('auth.emailPlaceholder')}
+                aria-label={t('auth.emailPlaceholder')}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+              />
+            )}
             <div>
               <Input
                 type="password"
@@ -158,20 +190,32 @@ export function LoginForm() {
               />
             </div>
 
-            {error && (
+            {(error || registrationError) && (
               <div className="flex items-center gap-2 text-destructive text-sm">
                 <AlertCircle className="h-4 w-4" />
-                {error}
+                {registrationError || (error === 'account-login-failed' ? t('auth.accountLoginFailed') : error)}
               </div>
             )}
+
+            {registrationMessage && <p className="text-sm text-muted-foreground">{registrationMessage}</p>}
 
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || !password.trim()}
+              disabled={isLoading || !password.trim() || (authMode === 'tagent' && !email.trim())}
             >
-              {isLoading ? t('auth.signingIn') : t('auth.signIn')}
+              {creatingAccount ? t('auth.createAccount') : isLoading ? t('auth.signingIn') : t('auth.signIn')}
             </Button>
+
+            {authMode === 'tagent' && (
+              <Button type="button" variant="link" className="w-full" onClick={() => {
+                setCreatingAccount(!creatingAccount)
+                setRegistrationError('')
+                setRegistrationMessage('')
+              }}>
+                {creatingAccount ? t('auth.backToLogin') : t('auth.createAccount')}
+              </Button>
+            )}
 
             {configInfo && (
               <div className="text-xs text-center text-muted-foreground pt-2 border-t">

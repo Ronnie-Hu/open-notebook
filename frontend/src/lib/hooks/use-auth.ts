@@ -1,11 +1,9 @@
 'use client'
 
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
 export function useAuth() {
-  const router = useRouter()
   const {
     isAuthenticated,
     isLoading,
@@ -15,7 +13,10 @@ export function useAuth() {
     checkAuthRequired,
     error,
     hasHydrated,
-    authRequired
+    authRequired,
+    isCheckingAuth,
+    authValidated,
+    authMode
   } = useAuthStore()
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export function useAuth() {
           if (required) {
             checkAuth()
           }
-        })
+        }).catch(() => undefined)
       } else if (authRequired) {
         // Auth is required, check credentials
         checkAuth()
@@ -38,29 +39,46 @@ export function useAuth() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasHydrated, authRequired])
 
-  const handleLogin = async (password: string) => {
-    const success = await login(password)
+  useEffect(() => {
+    if (authMode !== 'tagent') return
+    const recheck = () => {
+      if (document.visibilityState === 'visible') void checkAuth(true)
+    }
+    window.addEventListener('focus', recheck)
+    document.addEventListener('visibilitychange', recheck)
+    return () => {
+      window.removeEventListener('focus', recheck)
+      document.removeEventListener('visibilitychange', recheck)
+    }
+  }, [authMode, checkAuth])
+
+  const handleLogin = async (password: string, email?: string) => {
+    const success = await login(password, email)
     if (success) {
       // Check if there's a stored redirect path
       const redirectPath = sessionStorage.getItem('redirectAfterLogin')
       if (redirectPath) {
         sessionStorage.removeItem('redirectAfterLogin')
-        router.push(redirectPath)
+        if (redirectPath.startsWith('/') && !redirectPath.startsWith('//')) {
+          window.location.assign(redirectPath)
+        } else {
+          window.location.assign('/notebooks')
+        }
       } else {
-        router.push('/notebooks')
+        window.location.assign('/notebooks')
       }
     }
     return success
   }
 
-  const handleLogout = () => {
-    logout()
-    router.push('/login')
+  const handleLogout = async () => {
+    await logout()
+    window.location.assign('/login')
   }
 
   return {
     isAuthenticated,
-    isLoading: isLoading || !hasHydrated, // Treat lack of hydration as loading
+    isLoading: isLoading || !hasHydrated || authRequired === null || isCheckingAuth || !authValidated,
     error,
     login: handleLogin,
     logout: handleLogout

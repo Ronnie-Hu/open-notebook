@@ -193,6 +193,13 @@ export const zhCN = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "输入密码以访问应用程序",
+    accountLoginDesc: "使用 TAgent 邮箱和密码登录",
+    emailPlaceholder: "邮箱",
+    createAccount: "创建账号",
+    backToLogin: "返回登录",
+    registrationSuccess: "账号已创建，现在可以登录。",
+    registrationFailed: "创建账号失败，请检查填写的信息。",
+    accountLoginFailed: "登录失败，请检查邮箱和密码。",
     passwordPlaceholder: "密码",
     signingIn: "正在登录...",
     signIn: "登录",

@@ -193,6 +193,13 @@ export const esES = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "Ingresa tu contraseña para acceder a la aplicación",
+    accountLoginDesc: "Inicia sesión con tu correo y contraseña de TAgent",
+    emailPlaceholder: "Correo electrónico",
+    createAccount: "Crear cuenta",
+    backToLogin: "Volver al inicio de sesión",
+    registrationSuccess: "Cuenta creada. Ya puedes iniciar sesión.",
+    registrationFailed: "No se pudo crear la cuenta. Revisa los datos.",
+    accountLoginFailed: "No se pudo iniciar sesión. Comprueba tu correo y contraseña.",
     passwordPlaceholder: "Contraseña",
     signingIn: "Iniciando sesión...",
     signIn: "Iniciar sesión",

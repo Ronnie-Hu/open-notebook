@@ -58,6 +58,21 @@ describe('Config Priority', () => {
     expect(url).toBe('http://env-url.com')
   })
 
+  it('keeps account-mode API requests on the cookie origin despite an old API URL', async () => {
+    process.env.NEXT_PUBLIC_API_URL = 'http://old-backend.example:5055'
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ apiUrl: '', accountMode: true }),
+    } as Response)
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ version: '1.0.0' }),
+    } as Response)
+
+    expect(await getApiUrl()).toBe('')
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/config', expect.anything())
+  })
+
   it('should fall back to env var if runtime config returns empty object', async () => {
     // Setup: Env var set, Runtime config returns empty object
     process.env.NEXT_PUBLIC_API_URL = 'http://env-url.com'

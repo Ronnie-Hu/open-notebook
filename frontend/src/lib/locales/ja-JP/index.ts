@@ -193,6 +193,13 @@ export const jaJP = {
   auth: {
     loginTitle: "Open Notebook",
     loginDesc: "パスワードを入力してアプリケーションにアクセス",
+    accountLoginDesc: "TAgent のメールアドレスとパスワードでログイン",
+    emailPlaceholder: "メールアドレス",
+    createAccount: "アカウントを作成",
+    backToLogin: "ログインに戻る",
+    registrationSuccess: "アカウントを作成しました。ログインできます。",
+    registrationFailed: "アカウントを作成できませんでした。入力内容を確認してください。",
+    accountLoginFailed: "ログインできませんでした。メールアドレスとパスワードを確認してください。",
     passwordPlaceholder: "パスワード",
     signingIn: "サインイン中...",
     signIn: "サインイン",
