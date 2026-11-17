@@ -11,6 +11,7 @@ from api.routers.credentials import create_credential, update_credential
 from open_notebook.database.tenant_access import account_scope
 from open_notebook.domain.credential import Credential
 from open_notebook.exceptions import ConfigurationError
+from open_notebook.graphs.source import validate_content_state
 from open_notebook.utils.url_validation import (
     prepare_pinned_http_target,
     validate_model_endpoint,
@@ -125,3 +126,13 @@ def test_existing_server_credential_path_cannot_be_used_by_student(
         assert (
             credential.to_esperanto_config()["credentials_path"] == "/etc/secret.json"
         )
+
+
+@pytest.mark.asyncio
+async def test_student_source_worker_rechecks_external_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPEN_NOTEBOOK_TAGENT_ACCOUNT_MODE", "1")
+    with account_scope(ACCOUNT):
+        with pytest.raises(ValueError, match="external HTTPS"):
+            await validate_content_state({"url": "http://127.0.0.1:5001/"})

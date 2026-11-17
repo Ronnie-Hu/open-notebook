@@ -16,7 +16,13 @@ async def _resolve_model_config(
     Used by resolve_outline_config, resolve_transcript_config, resolve_tts_config,
     and per-speaker TTS overrides. Optionally passes through a max_tokens override.
     """
-    from open_notebook.ai.models import Model, resolve_anthropic_compatible_config
+    from open_notebook.ai.models import (
+        Model,
+        resolve_anthropic_compatible_config,
+        validate_personal_model_config,
+    )
+    from open_notebook.database.tenant_access import account_mode_enabled
+    from open_notebook.exceptions import ConfigurationError
 
     model = await Model.get(model_id)
     config: dict = {}
@@ -24,6 +30,10 @@ async def _resolve_model_config(
         credential = await model.get_credential_obj()
         if credential:
             config = credential.to_esperanto_config()
+        elif account_mode_enabled():
+            raise ConfigurationError("This model has no accessible personal credential")
+    elif account_mode_enabled():
+        raise ConfigurationError("A personal model credential is required")
     if not config:
         from open_notebook.ai.key_provider import provision_provider_keys
 
@@ -31,6 +41,8 @@ async def _resolve_model_config(
     provider = model.provider
     if provider == "anthropic_compatible":
         provider, config = await resolve_anthropic_compatible_config(config)
+    else:
+        await validate_personal_model_config(config, provider)
     if max_tokens is not None:
         config = {**config, "max_tokens": max_tokens}
     return (provider, model.name, config)

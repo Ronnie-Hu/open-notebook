@@ -23,6 +23,7 @@ from open_notebook.ai.model_discovery import (
     fetch_anthropic_model_ids,
 )
 from open_notebook.ai.provider_registry import PROVIDERS
+from open_notebook.database.tenant_access import student_account_mode
 from open_notebook.domain.credential import Credential
 from open_notebook.utils.encryption import (
     PBKDF2_MARKER,
@@ -222,7 +223,8 @@ async def get_provider_status() -> dict:
     source: Dict[str, str] = {}
 
     for provider in PROVIDER_ENV_CONFIG:
-        env_configured = check_env_configured(provider)
+        # Process-wide keys belong to the deployment, not to a student.
+        env_configured = not student_account_mode() and check_env_configured(provider)
         try:
             db_credentials = await Credential.get_by_provider(provider)
             db_configured = len(db_credentials) > 0
@@ -249,7 +251,9 @@ async def get_env_status() -> Dict[str, bool]:
     """Check what's configured via environment variables."""
     env_status: Dict[str, bool] = {}
     for provider in PROVIDER_ENV_CONFIG:
-        env_status[provider] = check_env_configured(provider)
+        env_status[provider] = not student_account_mode() and check_env_configured(
+            provider
+        )
     return env_status
 
 
@@ -908,6 +912,8 @@ async def migrate_from_env() -> dict:
 
     Returns dict with message, migrated, skipped, not_configured, errors.
     """
+    if student_account_mode():
+        raise PermissionError("Student accounts cannot import server model keys")
     logger.info("=== Starting environment variable migration ===")
     logger.info(
         f"Checking {len(PROVIDER_ENV_CONFIG)} providers: "

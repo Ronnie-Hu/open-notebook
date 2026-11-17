@@ -13,6 +13,10 @@ from surrealdb import RecordID
 
 from open_notebook.ai.connection_tester import normalize_anthropic_compatible_base_url
 from open_notebook.database.repository import ensure_record_id, repo_query
+from open_notebook.database.tenant_access import (
+    account_mode_enabled,
+    student_account_mode,
+)
 from open_notebook.domain.base import ObjectModel, RecordModel
 from open_notebook.exceptions import ConfigurationError
 from open_notebook.utils.url_validation import validate_model_endpoint
@@ -52,11 +56,28 @@ async def _revalidate_config_urls(config: dict, provider: str) -> None:
                 raise ConfigurationError(str(e)) from e
 
 
+async def validate_personal_model_config(config: dict, provider: str) -> None:
+    """Keep a student's model independent of process-wide keys and local URLs."""
+    if student_account_mode():
+        if provider in {"ollama", "omlx"}:
+            if not config.get("base_url"):
+                raise ConfigurationError(
+                    "Student local-model providers require an external HTTPS base URL"
+                )
+        elif not config.get("api_key"):
+            raise ConfigurationError("A personal model API key is required")
+        if provider in {"openai_compatible", "anthropic_compatible"} and not config.get(
+            "base_url"
+        ):
+            raise ConfigurationError("A personal model base URL is required")
+    await _revalidate_config_urls(config, provider)
+
+
 async def resolve_anthropic_compatible_config(
     config: dict, **overrides
 ) -> tuple[str, dict]:
     """Resolve the shared chat/podcast provider contract without official fallback."""
-    if not config:
+    if not config and not account_mode_enabled():
         config = {
             "api_key": os.environ.get("ANTHROPIC_COMPATIBLE_API_KEY", ""),
             "base_url": os.environ.get("ANTHROPIC_COMPATIBLE_BASE_URL", ""),
@@ -71,7 +92,7 @@ async def resolve_anthropic_compatible_config(
         raise ConfigurationError(
             "Anthropic-compatible models require a base URL and API key"
         )
-    await _revalidate_config_urls(config, "anthropic_compatible")
+    await validate_personal_model_config(config, "anthropic_compatible")
     config["base_url"] = normalize_anthropic_compatible_base_url(
         str(config["base_url"])
     )
@@ -227,11 +248,15 @@ class ModelManager:
             if credential:
                 config = credential.to_esperanto_config()
                 if model.provider != "anthropic_compatible":
-                    await _revalidate_config_urls(config, model.provider)
+                    await validate_personal_model_config(config, model.provider)
                 logger.debug(
                     f"Using credential '{credential.name}' for model {model.name}"
                 )
             else:
+                if account_mode_enabled():
+                    raise ConfigurationError(
+                        "This model has no accessible personal credential"
+                    )
                 logger.warning(
                     f"Model {model.id} has credential {model.credential} but it could not be loaded. "
                     f"Falling back to env vars."
@@ -241,6 +266,8 @@ class ModelManager:
 
                 await provision_provider_keys(model.provider)
         else:
+            if account_mode_enabled():
+                raise ConfigurationError("A personal model credential is required")
             # No credential linked - use env var fallback
             from open_notebook.ai.key_provider import provision_provider_keys
 
@@ -252,6 +279,7 @@ class ModelManager:
             )
         else:
             config.update(kwargs)
+            await validate_personal_model_config(config, model.provider)
             # DB stores underscores but Esperanto expects hyphens.
             provider = model.provider.replace("_", "-")
 

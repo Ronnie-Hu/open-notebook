@@ -542,6 +542,11 @@ async def migrate_encryption():
 @router.post("/migrate-from-env")
 async def migrate_from_env():
     """Migrate API keys from environment variables to credential records."""
+    if student_account_mode():
+        raise HTTPException(
+            status_code=403,
+            detail="Student accounts cannot import server model keys",
+        )
     try:
         return await svc_migrate_from_env()
     except ValueError as e:

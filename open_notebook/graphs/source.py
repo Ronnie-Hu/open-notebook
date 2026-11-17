@@ -19,7 +19,7 @@ from open_notebook.domain.transformation import Transformation
 from open_notebook.graphs.transformation import graph as transform_graph
 from open_notebook.storage.tenant_paths import validate_upload_path
 from open_notebook.utils.runtime_capabilities import engine_runtime_missing
-from open_notebook.utils.url_validation import validate_url
+from open_notebook.utils.url_validation import validate_model_endpoint as validate_url
 
 # content-core >= 2.1 disables its own Loguru logging for library consumers.
 # Both the API and the worker import this module before extracting anything,
