@@ -316,7 +316,7 @@ if account_mode_enabled():
             "OPEN_NOTEBOOK_TAGENT_VERIFIER_URL", "http://127.0.0.1:5001"
         ),
         cookie_name="__Host-tagent_session",
-        public_origin=os.getenv("TAGENT_PUBLIC_ORIGIN", ""),
+        public_origin=os.getenv("OPEN_NOTEBOOK_PUBLIC_ORIGIN", ""),
     )
 else:
     # Keep the single-user password flow when account mode is disabled.

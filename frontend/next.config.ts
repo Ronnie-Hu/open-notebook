@@ -43,19 +43,14 @@ const nextConfig: NextConfig = {
     const internalApiUrl = (process.env.INTERNAL_API_URL ||
       (process.env.OPEN_NOTEBOOK_TAGENT_ACCOUNT_MODE === '1'
         ? 'http://127.0.0.1:5055' : 'http://localhost:5055')).replace(/\/$/, '')
-    const tagentInternalUrl = (process.env.TAGENT_INTERNAL_URL || 'http://127.0.0.1:5001').replace(/\/$/, '')
     if (process.env.OPEN_NOTEBOOK_TAGENT_ACCOUNT_MODE === '1' &&
-        (!loopbackHttpTarget(internalApiUrl) || !loopbackHttpTarget(tagentInternalUrl))) {
-      throw new Error('Account mode requires loopback HTTP API and identity targets')
+        !loopbackHttpTarget(internalApiUrl)) {
+      throw new Error('Account mode requires a loopback HTTP API target')
     }
 
     console.log(`[Next.js Rewrites] Proxying /api/* to ${internalApiUrl}/api/*`)
 
     return [
-      {
-        source: '/agent-api/auth/:path*',
-        destination: `${tagentInternalUrl}/auth/:path*`,
-      },
       {
         source: '/api/:path*',
         destination: `${internalApiUrl}/api/:path*`,
