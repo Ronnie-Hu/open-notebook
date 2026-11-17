@@ -19,6 +19,29 @@ npm run test:coverage     # what CI runs
 
 The backend suite needs **no running SurrealDB, worker or AI provider**. CI runs it with nothing but `uv sync`. SurrealDB access, models and HTTP requests are mocked; a few tests use in-memory substitutes instead (for example an in-memory `SqliteSaver` in `tests/test_empty_model_reply.py`).
 
+### Opt-in TAgent account integration probe
+
+`tests/real_tagent_account_probe.py` exercises the real TAgent registration and
+session code against the account-mode OpenNotebook API and SurrealDB 2.7. It
+uses two disposable students and a second login for one of them. It verifies
+that notebooks, note bodies and model credentials follow that student's
+account and cannot be read through the other account. It makes no model calls.
+
+Run it only against a dedicated local SurrealDB instance on
+`127.0.0.1:18765`, started with an in-memory database and a test-only root
+password. In the separate TAgent checkout, start
+`python -m tools.auth_integration_fixture` from `TAgent重写版/basic-agent/`
+with `RUN_TAGENT_AUTH_INTEGRATION_FIXTURE=1`. This fixture binds only
+`127.0.0.1:18801`, uses an in-memory identity database, and refuses to start
+without the opt-in flag. Then, in this repository, set
+`RUN_REAL_TAGENT_ACCOUNT_PROBE=1`, `SURREAL2_TENANT_PROBE_URL` to
+`ws://127.0.0.1:18765/rpc`, and `SURREAL2_TENANT_PROBE_PASSWORD` to that
+test-only password; run `uv run --locked python tests/real_tagent_account_probe.py`.
+The probe checks the fixture marker before registering accounts and creates a
+fresh SurrealDB namespace on every run. Stop both local processes afterward.
+This is an API integration check with a simulated HTTPS origin, not a browser
+or production HTTPS acceptance test.
+
 ## Backend layout (`tests/`)
 
 `tests/` is flat: one `test_<topic>.py` per feature or regression (about 70 files), for example `test_sources_api.py`, `test_credentials_api.py`, `test_ask_graph.py`, `test_crud_404.py`. There are no `unit/` or `integration/` subfolders. Name a new file after what it covers, or add to the existing file for that area.
