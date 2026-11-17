@@ -242,13 +242,25 @@ async def lifespan(app: FastAPI):
     # Startup: Security checks
     logger.info("Starting API initialization...")
     if account_mode_enabled():
-        raise RuntimeError(
-            "TAgent account mode is not yet ready: data, files, workers, and UI "
-            "must all enforce tenant isolation before it can be enabled"
+        # Validate the public HTTPS boundary before touching the database. The
+        # actual middleware uses the same settings for every request.
+        TagentAccountMiddleware(
+            app,
+            verifier_url=os.getenv(
+                "OPEN_NOTEBOOK_TAGENT_VERIFIER_URL", "http://127.0.0.1:5001"
+            ),
+            cookie_name="__Host-tagent_session",
+            public_origin=os.getenv("OPEN_NOTEBOOK_PUBLIC_ORIGIN", ""),
         )
+        if not get_secret_from_env("OPEN_NOTEBOOK_ENCRYPTION_KEY"):
+            raise RuntimeError(
+                "Account mode requires OPEN_NOTEBOOK_ENCRYPTION_KEY for personal model keys"
+            )
 
     # Security check: Encryption key
-    if not get_secret_from_env("OPEN_NOTEBOOK_ENCRYPTION_KEY"):
+    if not account_mode_enabled() and not get_secret_from_env(
+        "OPEN_NOTEBOOK_ENCRYPTION_KEY"
+    ):
         logger.warning(
             "OPEN_NOTEBOOK_ENCRYPTION_KEY not set. "
             "API key encryption will fail until this is configured. "
@@ -257,7 +269,7 @@ async def lifespan(app: FastAPI):
 
     # Security check: Password. Auth is off without it, which is fine on your
     # own machine but not on anything reachable from a network.
-    if not get_secret_from_env("OPEN_NOTEBOOK_PASSWORD"):
+    if not account_mode_enabled() and not get_secret_from_env("OPEN_NOTEBOOK_PASSWORD"):
         logger.warning(
             "OPEN_NOTEBOOK_PASSWORD not set. Authentication is disabled: anyone "
             "who can reach the API or the UI can use the app and its stored "
