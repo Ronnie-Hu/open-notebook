@@ -75,8 +75,33 @@ async def main():
         }
     )
     try:
+        from surreal_commands import CommandInput, command
+        from surreal_commands.core.service import command_service
+        from surreal_commands.repository import repo_query as queue_repo_query
+        from surrealdb import RecordID
+
         from api import main as api_main
         from api.routers import config as config_router
+        from open_notebook.database.repository import repo_query
+        from open_notebook.database.tenant_access import account_scope, current_account
+        from open_notebook.database.tenant_commands import (
+            get_command_status,
+            submit_command,
+            tenant_command_handler,
+        )
+
+        class ProbeInput(CommandInput):
+            label: str
+
+        @command("tenant_probe", app="open_notebook")
+        @tenant_command_handler
+        async def tenant_probe(input_data: ProbeInput) -> dict:
+            notebooks = await repo_query("SELECT VALUE name FROM notebook")
+            return {
+                "account": str(current_account()),
+                "label": input_data.label,
+                "notebooks": notebooks,
+            }
 
         async def no_version_check(_version):
             return None, False
@@ -155,8 +180,44 @@ async def main():
                     f"/api/notebooks/{notebook_id}", headers=headers("bob")
                 )
                 assert guessed.status_code == 404, guessed.text
+                with account_scope(ALICE):
+                    job_id = str(
+                        await asyncio.to_thread(
+                            submit_command,
+                            "open_notebook",
+                            "tenant_probe",
+                            {"label": "alice job"},
+                        )
+                    )
+                queued = await queue_repo_query(
+                    "SELECT * FROM $job_id",
+                    {"job_id": RecordID.parse(job_id)},
+                )
+                assert len(queued) == 1, queued
+                job = queued[0]
+                await command_service.execute_command(
+                    job_id,
+                    "open_notebook.tenant_probe",
+                    job["args"],
+                    job["context"],
+                )
+                with account_scope(ALICE):
+                    completed = await get_command_status(job_id)
+                assert completed.status == "completed", completed.status
+                assert completed.result is not None, completed.status
+                assert completed.result["account"] == str(ALICE), completed.result
+                assert completed.result["notebooks"] == ["Alice notebook"], (
+                    completed.result
+                )
+                with account_scope(BOB):
+                    try:
+                        await get_command_status(job_id)
+                    except ValueError:
+                        pass
+                    else:
+                        raise AssertionError("Bob could read Alice's job")
                 print(
-                    "PASS: startup, config, notebooks, note bodies, credentials and cross-account reads"
+                    "PASS: startup, data isolation, queued worker identity and job status"
                 )
     finally:
         server.shutdown()
