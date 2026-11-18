@@ -87,8 +87,8 @@ async def test_inventory_counts_all_stores_without_reading_contents(
 
     calls = []
 
-    async def fake_record_query(statement):
-        calls.append(statement)
+    async def fake_record_query(statement, variables):
+        calls.append((statement, variables))
         return [{"total": 2}]
 
     async def fake_queue_query(statement, variables):
@@ -99,6 +99,10 @@ async def test_inventory_counts_all_stores_without_reading_contents(
     monkeypatch.setattr(inventory, "queue_query", fake_queue_query)
     result = await inventory.collect_account_inventory(account)
     assert len(calls) == len(inventory.PERSONAL_TABLES)
+    assert all("WHERE owner = $owner" in statement for statement, _ in calls)
+    assert all(
+        str(variables["owner"]) == f"account:{account.hex}" for _, variables in calls
+    )
     assert all(count == 2 for count in result.records.values())
     assert result.uploads == inventory.FileStats(1, 3)
     assert result.podcasts == inventory.FileStats()

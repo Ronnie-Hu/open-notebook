@@ -8,6 +8,7 @@ import os
 from uuid import UUID, uuid4
 
 import pytest
+from surrealdb import RecordID
 
 from open_notebook.account_inventory import collect_account_inventory
 from open_notebook.database.async_migrate import AsyncMigrationManager
@@ -105,3 +106,25 @@ async def test_real_surreal2_migration_and_account_isolation(monkeypatch) -> Non
     admin_inventory = await collect_account_inventory(ADMIN)
     assert admin_inventory.records["notebook"] == 1
     assert admin_inventory.records["note"] == 1
+
+    with migration_scope():
+        async with db_connection() as db:
+            changed = await db.query(
+                "UPDATE $account SET active = false;",
+                {"account": RecordID("account", STUDENT.hex)},
+            )
+            assert changed, changed
+    with account_scope(STUDENT):
+        async with db_connection() as db:
+            assert await db.query("SELECT * FROM notebook;") == []
+            assert (
+                await db.query(
+                    "CREATE notebook SET name = 'after disable', "
+                    "owner = type::thing('account', $student);",
+                    {"student": STUDENT.hex},
+                )
+                == []
+            )
+    disabled_inventory = await collect_account_inventory(STUDENT)
+    assert disabled_inventory.records["notebook"] == 1
+    assert disabled_inventory.records["note"] == 1

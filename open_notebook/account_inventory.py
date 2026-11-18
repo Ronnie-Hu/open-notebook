@@ -9,6 +9,7 @@ from pathlib import Path
 from uuid import UUID
 
 from surreal_commands.repository import repo_query as queue_query
+from surrealdb import RecordID  # type: ignore
 
 from open_notebook.config import (
     LANGGRAPH_CHECKPOINT_FILE,
@@ -16,7 +17,7 @@ from open_notebook.config import (
     UPLOADS_FOLDER,
 )
 from open_notebook.database.repository import repo_query
-from open_notebook.database.tenant_access import account_mode_enabled, account_scope
+from open_notebook.database.tenant_access import account_mode_enabled, migration_scope
 
 # Keep this list synchronized with migration 27's `DEFINE FIELD owner ON` lines.
 # An explicit list makes newly added personal tables an auditable schema change.
@@ -112,15 +113,18 @@ def account_checkpoint_counts(db_file: str | Path, account_id: UUID) -> dict[str
 
 
 async def collect_account_inventory(account_id: UUID) -> AccountInventory:
-    """Query record-token-visible data and read-only local stores for one UUID."""
+    """Use a bound owner ID so inventory still works after account disablement."""
     if not account_mode_enabled():
         raise RuntimeError("Account inventory requires OpenNotebook account mode")
     if not isinstance(account_id, UUID) or account_id.int == 0:
         raise ValueError("A valid account UUID is required")
-    with account_scope(account_id):
+    with migration_scope():
         records: dict[str, int] = {}
         for table in PERSONAL_TABLES:
-            rows = await repo_query(f"SELECT count() AS total FROM {table} GROUP ALL")
+            rows = await repo_query(
+                f"SELECT count() AS total FROM {table} WHERE owner = $owner GROUP ALL",
+                {"owner": RecordID("account", account_id.hex)},
+            )
             records[table] = int(rows[0]["total"]) if rows else 0
     jobs: dict[str, int] = {}
     rows = await queue_query(
