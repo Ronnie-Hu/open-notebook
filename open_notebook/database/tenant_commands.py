@@ -24,7 +24,9 @@ from surreal_commands.repository import (
 from surreal_commands.repository import (
     repo_query as queue_repo_query,
 )
+from surrealdb import RecordID  # type: ignore
 
+from open_notebook.database.repository import repo_query
 from open_notebook.database.tenant_access import (
     account_mode_enabled,
     account_scope,
@@ -153,6 +155,15 @@ def tenant_command_handler(
             execution.app_name, execution.command_name, context
         )
         with account_scope(account, role=role):
+            # TAgent can mark an account for deletion after a job was queued.
+            # Check the current OpenNotebook account record before any job code
+            # runs; never cache this status across jobs.
+            rows = await repo_query(
+                "SELECT active FROM $account",
+                {"account": RecordID("account", account.hex)},
+            )
+            if not rows or rows[0].get("active") is not True:
+                raise PermissionError("Account is disabled for background jobs")
             return await func(input_data)
 
     return wrapped

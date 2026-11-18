@@ -101,7 +101,13 @@ async def test_worker_binds_signed_owner_and_rejects_tampering(account_mode) -> 
     with account_scope(STUDENT):
         signed = _job_context("open_notebook", "sample", None)
     assert signed is not None
-    assert await handler(command_input(signed)) == 7
+    with patch(
+        "open_notebook.database.tenant_commands.repo_query",
+        new_callable=AsyncMock,
+        return_value=[{"active": True}],
+    ) as account_query:
+        assert await handler(command_input(signed)) == 7
+    account_query.assert_awaited_once()
     assert observed == [(STUDENT, "student")]
     assert current_account() is None
 
@@ -111,6 +117,31 @@ async def test_worker_binds_signed_owner_and_rejects_tampering(account_mode) -> 
     with pytest.raises(PermissionError, match="missing"):
         await handler(command_input(None))
     assert observed == [(STUDENT, "student")]
+
+
+@pytest.mark.asyncio
+async def test_worker_refuses_queued_work_after_account_is_disabled(
+    account_mode,
+) -> None:
+    called = False
+
+    @tenant_command_handler
+    async def handler(input_data: SampleInput) -> int:
+        nonlocal called
+        called = True
+        return input_data.value
+
+    with account_scope(STUDENT):
+        signed = _job_context("open_notebook", "sample", None)
+    with patch(
+        "open_notebook.database.tenant_commands.repo_query",
+        new_callable=AsyncMock,
+        return_value=[{"active": False}],
+    ):
+        with pytest.raises(PermissionError, match="disabled"):
+            await handler(command_input(signed))
+    assert not called
+    assert current_account() is None
 
 
 def test_anonymous_jobs_keep_existing_queue_contract(monkeypatch) -> None:
@@ -179,4 +210,11 @@ async def test_queue_executor_injects_signed_context_before_handler(
     executor = CommandExecutor({"open_notebook.sample": runnable})
     parsed = executor.parse_input(runnable, {"value": 7})
     context = command_input(signed).execution_context
-    assert await executor.execute_async("open_notebook.sample", parsed, context) == "7"
+    with patch(
+        "open_notebook.database.tenant_commands.repo_query",
+        new_callable=AsyncMock,
+        return_value=[{"active": True}],
+    ):
+        assert (
+            await executor.execute_async("open_notebook.sample", parsed, context) == "7"
+        )
