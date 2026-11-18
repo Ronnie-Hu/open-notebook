@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { getApiUrl, resetConfig } from './config'
+import { getApiUrl, getConfig, resetConfig } from './config'
 
 describe('Config Priority', () => {
   const originalEnv = process.env
@@ -148,5 +148,22 @@ describe('Config Priority', () => {
     const url = await getApiUrl()
     expect(fetchMock).toHaveBeenLastCalledWith('http://localhost:5055/api/config', expect.anything())
     expect(url).toBe('http://localhost:5055')
+  })
+
+  it('retries configuration after a temporary backend failure', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ accountMode: true }) } as Response)
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 503 } as Response)
+
+    const [urlFailure, configFailure] = await Promise.allSettled([getApiUrl(), getConfig()])
+    expect(urlFailure.status).toBe('rejected')
+    expect(configFailure.status).toBe('rejected')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ accountMode: true }) } as Response)
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ version: '1.0.0' }) } as Response)
+
+    expect(await getApiUrl()).toBe('')
+    expect((await getConfig()).version).toBe('1.0.0')
+    expect(fetchMock).toHaveBeenCalledTimes(4)
   })
 })

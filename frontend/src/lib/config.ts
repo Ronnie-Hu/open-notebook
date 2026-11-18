@@ -11,6 +11,18 @@ const BUILD_TIME = new Date().toISOString()
 let config: AppConfig | null = null
 let configPromise: Promise<AppConfig> | null = null
 
+function loadConfig(): Promise<AppConfig> {
+  if (config) return Promise.resolve(config)
+  if (!configPromise) {
+    configPromise = fetchConfig().catch((error) => {
+      // A brief API outage must not poison every later request in this tab.
+      configPromise = null
+      throw error
+    })
+  }
+  return configPromise
+}
+
 /**
  * Get the API URL to use for requests.
  *
@@ -20,20 +32,7 @@ let configPromise: Promise<AppConfig> | null = null
  * 3. Default fallback (http://localhost:5055)
  */
 export async function getApiUrl(): Promise<string> {
-  // If we already have config, return it
-  if (config) {
-    return config.apiUrl
-  }
-
-  // If we're already fetching, wait for that
-  if (configPromise) {
-    const cfg = await configPromise
-    return cfg.apiUrl
-  }
-
-  // Start fetching config
-  configPromise = fetchConfig()
-  const cfg = await configPromise
+  const cfg = await loadConfig()
   return cfg.apiUrl
 }
 
@@ -41,16 +40,7 @@ export async function getApiUrl(): Promise<string> {
  * Get the full configuration.
  */
 export async function getConfig(): Promise<AppConfig> {
-  if (config) {
-    return config
-  }
-
-  if (configPromise) {
-    return await configPromise
-  }
-
-  configPromise = fetchConfig()
-  return await configPromise
+  return loadConfig()
 }
 
 /**

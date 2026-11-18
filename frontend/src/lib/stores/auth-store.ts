@@ -1,4 +1,3 @@
-import axios from 'axios'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import apiClient from '@/lib/api/client'
@@ -64,16 +63,15 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           console.error('Failed to check auth status:', error)
 
-          // If it's a network error, set a more helpful error message
-          if (axios.isAxiosError(error) && !error.response) {
-            set({
-              error: 'Unable to connect to server. Please check if the API is running.',
-              authRequired: null  // Don't assume auth is required if we can't connect
-            })
-          } else {
-            // For other errors, default to requiring auth to be safe
-            set({ authRequired: true, authValidated: true })
-          }
+          // A failed status check cannot establish which login mode is active.
+          // Keep the form blocked until a retry succeeds, including on HTTP 503.
+          set({
+            error: 'Unable to determine login mode. Please retry the connection.',
+            authRequired: null,
+            authMode: null,
+            authValidated: false,
+            isAuthenticated: false,
+          })
 
           // Re-throw the error so the UI can handle it
           throw error
