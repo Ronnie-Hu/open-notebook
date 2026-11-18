@@ -11,6 +11,7 @@ import pytest
 from surrealdb import RecordID
 
 from open_notebook.account_inventory import collect_account_inventory
+from open_notebook.database.account_schema import assert_account_mode_schema
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.database.repository import db_connection
 from open_notebook.database.tenant_access import account_scope, migration_scope
@@ -50,6 +51,7 @@ async def test_real_surreal2_migration_and_account_isolation(monkeypatch) -> Non
         await manager.up_migrations[-1].run()
         async with db_connection() as db:
             await db.query(f"UPSERT account:{STUDENT.hex} SET active = true;")
+    await assert_account_mode_schema()
 
     with account_scope(STUDENT):
         async with db_connection() as db:
@@ -128,3 +130,22 @@ async def test_real_surreal2_migration_and_account_isolation(monkeypatch) -> Non
     disabled_inventory = await collect_account_inventory(STUDENT)
     assert disabled_inventory.records["notebook"] == 1
     assert disabled_inventory.records["note"] == 1
+
+    with migration_scope():
+        async with db_connection() as db:
+            await db.query(
+                "DEFINE TABLE OVERWRITE notebook SCHEMAFULL PERMISSIONS "
+                "FOR select, create, update, delete WHERE owner = $auth.id;"
+            )
+    with pytest.raises(RuntimeError, match="lacks active account permissions"):
+        await assert_account_mode_schema()
+
+    with migration_scope():
+        async with db_connection() as db:
+            await db.query(
+                "DEFINE TABLE OVERWRITE notebook SCHEMAFULL PERMISSIONS "
+                "FOR select WHERE owner = $auth.id AND $auth.active = true "
+                "FOR create, update, delete WHERE owner = $auth.id;"
+            )
+    with pytest.raises(RuntimeError, match="lacks active account permissions"):
+        await assert_account_mode_schema()

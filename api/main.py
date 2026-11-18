@@ -282,6 +282,10 @@ async def lifespan(app: FastAPI):
 
     try:
         await _run_database_migrations()
+        if account_mode_enabled():
+            from open_notebook.database.account_schema import assert_account_mode_schema
+
+            await assert_account_mode_schema()
     except Exception as e:
         logger.error(f"CRITICAL: Database migration failed: {str(e)}")
         logger.exception(e)
