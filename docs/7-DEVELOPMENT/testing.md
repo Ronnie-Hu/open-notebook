@@ -56,7 +56,8 @@ the API, `OPEN_NOTEBOOK_TAGENT_LIFECYCLE_KEY` and
 `TAGENT_NOTEBOOK_LIFECYCLE_URL=http://127.0.0.1:18802` for the fixture. After
 the API listens on `127.0.0.1:18802`, run the script with
 `RUN_FULL_LIFECYCLE_HTTP_PROBE=1`. It checks real HTTP registration, separate
-notebooks, a complete ZIP containing a private note, account deletion, session
+notebooks, a private source upload and download, denial to the other account,
+a ZIP containing both the note and uploaded bytes, account deletion, session
 revocation, and the other account's continued access. Use a fresh SurrealDB
 test namespace; this probe intentionally deletes its own disposable account.
 After the account-mode Next.js build, the same TAgent fixture can also be used

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import os
 from io import BytesIO
-from uuid import uuid4
+from uuid import UUID, uuid4
 from zipfile import ZipFile
 
 import httpx
@@ -83,6 +83,29 @@ def main() -> None:
             headers=_notebook_headers(alice_cookie, alice_csrf),
         )
         assert note.status_code == 200, note.text
+        upload_bytes = b"private upload for Alice only\n"
+        upload = notebook.post(
+            "/api/sources",
+            data={
+                "type": "upload",
+                "notebooks": json.dumps([own.json()["id"]]),
+                "async_processing": "true",
+            },
+            files={"file": ("private.txt", upload_bytes, "text/plain")},
+            headers=_notebook_headers(alice_cookie, alice_csrf),
+        )
+        assert upload.status_code == 200, upload.text
+        source_id = upload.json()["id"]
+        own_download = notebook.get(
+            f"/api/sources/{source_id}/download",
+            headers=_notebook_headers(alice_cookie),
+        )
+        assert own_download.status_code == 200 and own_download.content == upload_bytes
+        other_download = notebook.get(
+            f"/api/sources/{source_id}/download",
+            headers=_notebook_headers(bob_cookie),
+        )
+        assert other_download.status_code in {403, 404}, other_download.text
         other = notebook.post(
             "/api/notebooks",
             json={"name": "Bob private notebook"},
@@ -102,6 +125,13 @@ def main() -> None:
                 notes = personal.read("records/note.json").decode("utf-8")
                 assert "Alice private body" in notes
                 assert "Bob private notebook" not in str(personal.namelist())
+                upload_names = [
+                    name
+                    for name in personal.namelist()
+                    if name.startswith(f"uploads/{UUID(alice).hex}/")
+                ]
+                assert len(upload_names) == 1, upload_names
+                assert personal.read(upload_names[0]) == upload_bytes
 
         deleted = tagent.request(
             "DELETE",
@@ -134,7 +164,8 @@ def main() -> None:
         assert [item["id"] for item in bob_notebooks.json()] == [other.json()["id"]]
 
     print(
-        "PASS: real HTTP registration, notebook export, deletion and other-account retention"
+        "PASS: real HTTP registration, notebook and upload isolation, "
+        "complete export, deletion and other-account retention"
     )
 
 
