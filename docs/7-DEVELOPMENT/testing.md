@@ -39,6 +39,15 @@ without the opt-in flag. Then, in this repository, set
 test-only password; run `uv run --locked python tests/real_tagent_account_probe.py`.
 The probe checks the fixture marker before registering accounts and creates a
 fresh SurrealDB namespace on every run. Stop both local processes afterward.
+
+Before designing account export and deletion, the read-only inventory command
+`uv run --locked python -m scripts.account_inventory --account <TAgent-account-UUID>`
+counts that account's OpenNotebook records, uploads, podcast files, chat
+checkpoints and queued jobs without printing their contents. Run it only with
+account mode enabled and the intended database/storage configuration. Its table
+allowlist is checked against migration 27 by `tests/test_account_inventory.py`.
+The inventory does not delete or export data, and the optional real SurrealDB
+probe must be rerun before relying on it for a deployment.
 After the account-mode Next.js build, the same TAgent fixture can also be used
 with `npm run test:auth-route-tagent` in `frontend/`. That check starts the
 built Next.js server locally and exercises real registration, Secure session

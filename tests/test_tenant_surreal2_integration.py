@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from open_notebook.account_inventory import collect_account_inventory
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.database.repository import db_connection
 from open_notebook.database.tenant_access import account_scope, migration_scope
@@ -96,3 +97,11 @@ async def test_real_surreal2_migration_and_account_isolation(monkeypatch) -> Non
             legacy = await db.query("SELECT content FROM note:legacy;")
             assert legacy[0]["content"] == "quokka admin secret"
             assert await db.query("SELECT * FROM note:forged;") == []
+
+    # The same record-token boundary powers the read-only deletion inventory.
+    student_inventory = await collect_account_inventory(STUDENT)
+    assert student_inventory.records["notebook"] == 1
+    assert student_inventory.records["note"] == 1
+    admin_inventory = await collect_account_inventory(ADMIN)
+    assert admin_inventory.records["notebook"] == 1
+    assert admin_inventory.records["note"] == 1
