@@ -17,6 +17,8 @@ async def test_provision_creates_only_the_verified_account(monkeypatch) -> None:
     calls: list[tuple[object, ...]] = []
 
     class FakeDatabase:
+        existing = False
+
         async def signin(self, credentials):
             calls.append(("signin", credentials["username"]))
 
@@ -25,7 +27,10 @@ async def test_provision_creates_only_the_verified_account(monkeypatch) -> None:
 
         async def query(self, query, params):
             calls.append((query, str(params["account"])))
-            return [{"id": params["account"]}]
+            if query.startswith("SELECT"):
+                return [{"active": True}] if self.existing else []
+            self.existing = True
+            return [{"id": params["account"], "active": True}]
 
         async def close(self):
             calls.append(("close",))
@@ -36,8 +41,68 @@ async def test_provision_creates_only_the_verified_account(monkeypatch) -> None:
     assert calls == [
         ("signin", None),
         ("use", "open_notebook", "open_notebook"),
-        ("UPSERT $account SET active = true;", f"account:{ACCOUNT.hex}"),
+        ("SELECT active FROM $account;", f"account:{ACCOUNT.hex}"),
+        ("CREATE $account SET active = true;", f"account:{ACCOUNT.hex}"),
         ("close",),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_provision_never_reactivates_a_disabled_account(monkeypatch) -> None:
+    monkeypatch.setenv("OPEN_NOTEBOOK_TAGENT_ACCOUNT_MODE", "1")
+    account_provision._recent.clear()
+    queries = []
+
+    class FakeDatabase:
+        async def signin(self, _credentials):
+            pass
+
+        async def use(self, _namespace, _database):
+            pass
+
+        async def query(self, query, _params):
+            queries.append(query)
+            return [{"active": False}]
+
+        async def close(self):
+            pass
+
+    monkeypatch.setattr(account_provision, "AsyncSurreal", lambda _url: FakeDatabase())
+    with pytest.raises(PermissionError, match="disabled"):
+        await account_provision.ensure_account_record(ACCOUNT)
+    assert queries == ["SELECT active FROM $account;"]
+
+
+@pytest.mark.asyncio
+async def test_concurrent_first_login_accepts_another_process_creation(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("OPEN_NOTEBOOK_TAGENT_ACCOUNT_MODE", "1")
+    account_provision._recent.clear()
+    queries = []
+
+    class FakeDatabase:
+        async def signin(self, _credentials):
+            pass
+
+        async def use(self, _namespace, _database):
+            pass
+
+        async def query(self, query, _params):
+            queries.append(query)
+            if query.startswith("CREATE"):
+                raise RuntimeError("record was created by another process")
+            return [] if len(queries) == 1 else [{"active": True}]
+
+        async def close(self):
+            pass
+
+    monkeypatch.setattr(account_provision, "AsyncSurreal", lambda _url: FakeDatabase())
+    await account_provision.ensure_account_record(ACCOUNT)
+    assert queries == [
+        "SELECT active FROM $account;",
+        "CREATE $account SET active = true;",
+        "SELECT active FROM $account;",
     ]
 
 

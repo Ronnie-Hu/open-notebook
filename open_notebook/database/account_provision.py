@@ -3,6 +3,7 @@
 import asyncio
 import os
 import time
+from typing import Any
 from uuid import UUID
 
 from surrealdb import AsyncSurreal, RecordID  # type: ignore
@@ -21,7 +22,7 @@ _RECHECK_SECONDS = 60.0
 
 
 async def ensure_account_record(account_id: UUID) -> None:
-    """Use root only for an exact account UPSERT after TAgent verified the session.
+    """Create an exact account record only after TAgent verified the session.
 
     Record-token authentication requires this row to exist. Never accept an ID
     from a request body or header; the API middleware passes the verified ID.
@@ -46,12 +47,33 @@ async def ensure_account_record(account_id: UUID) -> None:
                 }
             )
             await db.use(get_database_namespace(), get_database_name())
-            result = await db.query(
-                "UPSERT $account SET active = true;",
-                {"account": RecordID("account", account_id.hex)},
-            )
-            if isinstance(result, str) or not result:
-                raise RuntimeError("Account record provisioning failed")
+            params: dict[str, Any] = {"account": RecordID("account", account_id.hex)}
+
+            async def active_row() -> bool | None:
+                rows: Any = await db.query("SELECT active FROM $account;", params)
+                if not isinstance(rows, list):
+                    raise RuntimeError("Account record lookup failed")
+                if not rows:
+                    return None
+                if not isinstance(rows[0], dict):
+                    raise RuntimeError("Account record lookup failed")
+                return rows[0].get("active") is True
+
+            active = await active_row()
+            if active is False:
+                raise PermissionError("OpenNotebook account is disabled")
+            if active is None:
+                # CREATE fails for an existing ID. Concurrent API processes may
+                # race to create the same first-login row; re-read in that case.
+                try:
+                    created = await db.query(
+                        "CREATE $account SET active = true;", params
+                    )
+                except Exception:
+                    created = None
+                if not created or isinstance(created, str):
+                    if await active_row() is not True:
+                        raise RuntimeError("Account record provisioning failed")
         finally:
             await db.close()
         _recent[account_id] = time.monotonic() + _RECHECK_SECONDS
