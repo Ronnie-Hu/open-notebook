@@ -28,6 +28,7 @@ from api.cors import (
 )
 from api.middleware import MaxBodySizeMiddleware, get_max_upload_size_bytes
 from api.routers import (
+    account_lifecycle,
     auth,
     capabilities,
     chat,
@@ -255,6 +256,11 @@ async def lifespan(app: FastAPI):
         if not get_secret_from_env("OPEN_NOTEBOOK_ENCRYPTION_KEY"):
             raise RuntimeError(
                 "Account mode requires OPEN_NOTEBOOK_ENCRYPTION_KEY for personal model keys"
+            )
+        lifecycle_key = get_secret_from_env("OPEN_NOTEBOOK_TAGENT_LIFECYCLE_KEY")
+        if not lifecycle_key or len(lifecycle_key.encode("utf-8")) < 32:
+            raise RuntimeError(
+                "Account mode requires OPEN_NOTEBOOK_TAGENT_LIFECYCLE_KEY for account deletion"
             )
 
     # Security check: Encryption key
@@ -485,6 +491,7 @@ async def open_notebook_error_handler(request: Request, exc: OpenNotebookError):
 
 # Include routers
 app.include_router(auth.router, prefix="/api", tags=["auth"])
+app.include_router(account_lifecycle.router, prefix="/api")
 app.include_router(config.router, prefix="/api", tags=["config"])
 app.include_router(notebooks.router, prefix="/api", tags=["notebooks"])
 app.include_router(search.router, prefix="/api", tags=["search"])

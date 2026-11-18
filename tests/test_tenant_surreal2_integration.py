@@ -5,16 +5,22 @@ The test creates a unique namespace and database on that local test server.
 """
 
 import os
+import sqlite3
+from io import BytesIO
 from uuid import UUID, uuid4
+from zipfile import ZipFile
 
 import pytest
 from surrealdb import RecordID
 
+from open_notebook import account_inventory, account_purge
+from open_notebook.account_export import write_account_archive
 from open_notebook.account_inventory import collect_account_inventory
 from open_notebook.database.account_schema import assert_account_mode_schema
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.database.repository import db_connection
 from open_notebook.database.tenant_access import account_scope, migration_scope
+from open_notebook.storage import account_file_gate
 
 ADMIN = UUID("5fc55ced-5acd-4fc8-bf17-0eb8fe36a10f")
 STUDENT = UUID("db9f0e0c-4d8e-4a84-8b9a-c7576450212d")
@@ -25,7 +31,10 @@ STUDENT = UUID("db9f0e0c-4d8e-4a84-8b9a-c7576450212d")
     os.getenv("RUN_SURREAL2_TENANT_PROBE") != "1",
     reason="Requires an isolated SurrealDB 2 test server",
 )
-async def test_real_surreal2_migration_and_account_isolation(monkeypatch) -> None:
+async def test_real_surreal2_migration_and_account_isolation(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setattr(account_file_gate, "DATA_FOLDER", tmp_path)
     url = os.environ["SURREAL2_TENANT_PROBE_URL"]
     password = os.environ["SURREAL2_TENANT_PROBE_PASSWORD"]
     namespace = f"tenant_probe_{uuid4().hex}"
@@ -109,6 +118,14 @@ async def test_real_surreal2_migration_and_account_isolation(monkeypatch) -> Non
     assert admin_inventory.records["notebook"] == 1
     assert admin_inventory.records["note"] == 1
 
+    exported = BytesIO()
+    with ZipFile(exported, "w") as archive:
+        await write_account_archive(STUDENT, archive)
+    with ZipFile(exported) as archive:
+        notes = archive.read("records/note.json").decode("utf-8")
+        assert "quokka student secret" in notes
+        assert "quokka admin secret" not in notes
+
     with migration_scope():
         async with db_connection() as db:
             changed = await db.query(
@@ -130,6 +147,57 @@ async def test_real_surreal2_migration_and_account_isolation(monkeypatch) -> Non
     disabled_inventory = await collect_account_inventory(STUDENT)
     assert disabled_inventory.records["notebook"] == 1
     assert disabled_inventory.records["note"] == 1
+
+    uploads = tmp_path / "uploads"
+    podcasts = tmp_path / "podcasts"
+    for root in (uploads, podcasts):
+        (root / STUDENT.hex).mkdir(parents=True)
+        (root / STUDENT.hex / "own.txt").write_text("student", encoding="utf-8")
+        (root / ADMIN.hex).mkdir()
+        (root / ADMIN.hex / "keep.txt").write_text("admin", encoding="utf-8")
+    checkpoints = tmp_path / "checkpoints.sqlite"
+    with sqlite3.connect(checkpoints) as db:
+        db.execute("CREATE TABLE checkpoints (thread_id TEXT)")
+        db.execute("CREATE TABLE writes (thread_id TEXT)")
+        for table in ("checkpoints", "writes"):
+            db.executemany(
+                f"INSERT INTO {table} (thread_id) VALUES (?)",
+                [(f"{STUDENT.hex}:session",), (f"{ADMIN.hex}:session",)],
+            )
+    monkeypatch.setattr(account_purge, "UPLOADS_FOLDER", uploads)
+    monkeypatch.setattr(account_purge, "PODCASTS_FOLDER", podcasts)
+    monkeypatch.setattr(account_purge, "LANGGRAPH_CHECKPOINT_FILE", checkpoints)
+    monkeypatch.setattr(account_inventory, "UPLOADS_FOLDER", uploads)
+    monkeypatch.setattr(account_inventory, "PODCASTS_FOLDER", podcasts)
+    monkeypatch.setattr(account_inventory, "LANGGRAPH_CHECKPOINT_FILE", checkpoints)
+    with migration_scope():
+        async with db_connection() as db:
+            await db.query(
+                "CREATE command:student_job SET "
+                "context = { tagent_account: $student }, status = 'running'",
+                {"student": STUDENT.hex},
+            )
+    with pytest.raises(PermissionError, match="administrator"):
+        await account_purge.disable_account_data(ADMIN)
+    with pytest.raises(account_purge.AccountPurgePending, match="running"):
+        await account_purge.purge_disabled_account(STUDENT)
+    with migration_scope():
+        async with db_connection() as db:
+            await db.query("UPDATE command:student_job SET status = 'failed'")
+    await account_purge.disable_account_data(STUDENT)
+    await account_purge.purge_disabled_account(STUDENT)
+    await account_purge.purge_disabled_account(STUDENT)
+    empty = await collect_account_inventory(STUDENT)
+    assert all(count == 0 for count in empty.records.values())
+    assert empty.jobs == {}
+    assert not (uploads / STUDENT.hex).exists()
+    assert not (podcasts / STUDENT.hex).exists()
+    assert (uploads / ADMIN.hex / "keep.txt").read_text(encoding="utf-8") == "admin"
+    assert (podcasts / ADMIN.hex / "keep.txt").read_text(encoding="utf-8") == "admin"
+    assert all(count == 0 for count in empty.checkpoints.values())
+    admin_after_purge = await collect_account_inventory(ADMIN)
+    assert admin_after_purge.records["notebook"] == 1
+    assert admin_after_purge.records["note"] == 1
 
     with migration_scope():
         async with db_connection() as db:

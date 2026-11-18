@@ -101,6 +101,7 @@ async def main() -> None:
                 "OPEN_NOTEBOOK_LEGACY_ADMIN_ID": str(uuid4()),
                 "OPEN_NOTEBOOK_TAGENT_DB_SIGNING_KEY": "a" * 48,
                 "OPEN_NOTEBOOK_ENCRYPTION_KEY": "b" * 48,
+                "OPEN_NOTEBOOK_TAGENT_LIFECYCLE_KEY": "l" * 48,
                 "OPEN_NOTEBOOK_PUBLIC_ORIGIN": NOTEBOOK_ORIGIN,
                 "OPEN_NOTEBOOK_TAGENT_VERIFIER_URL": TAGENT_FIXTURE,
             }

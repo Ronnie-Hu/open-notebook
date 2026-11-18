@@ -33,6 +33,7 @@ from api.models import (
 from commands.source_commands import SourceProcessingInput
 from open_notebook.config import UPLOADS_FOLDER
 from open_notebook.database.repository import ensure_record_id, repo_query
+from open_notebook.database.tenant_access import account_mode_enabled, current_account
 from open_notebook.database.tenant_commands import execute_command_sync, submit_command
 from open_notebook.domain.notebook import Asset, Notebook, Source
 from open_notebook.domain.transformation import Transformation
@@ -42,6 +43,7 @@ from open_notebook.exceptions import (
     OpenNotebookError,
     UnsupportedTypeException,
 )
+from open_notebook.storage.account_file_gate import account_file_gate
 from open_notebook.storage.tenant_paths import upload_folder, validate_upload_path
 
 router = APIRouter()
@@ -160,19 +162,29 @@ def generate_unique_filename(original_filename: str, upload_folder: str) -> str:
 def _write_uploaded_file(filename: str, content: bytes, folder: str) -> str:
     """Sync filesystem work for save_uploaded_file() - run via asyncio.to_thread
     so a large upload doesn't block the event loop for other requests."""
-    file_path = generate_unique_filename(filename, folder)
-    try:
-        with open(file_path, "wb") as f:
-            f.write(content)
 
-        logger.info(f"Saved uploaded file to: {file_path}")
-        return file_path
-    except Exception as e:
-        logger.error(f"Failed to save uploaded file: {e}")
-        # Clean up partial file if it exists
-        if os.path.exists(file_path):
-            os.unlink(file_path)
-        raise
+    def write() -> str:
+        file_path = generate_unique_filename(filename, folder)
+        try:
+            with open(file_path, "wb") as f:
+                f.write(content)
+
+            logger.info(f"Saved uploaded file to: {file_path}")
+            return file_path
+        except Exception as e:
+            logger.error(f"Failed to save uploaded file: {e}")
+            # Clean up partial file if it exists
+            if os.path.exists(file_path):
+                os.unlink(file_path)
+            raise
+
+    if account_mode_enabled():
+        actor = current_account()
+        if actor is None:
+            raise PermissionError("Verified TAgent account is required for uploads")
+        with account_file_gate(actor):
+            return write()
+    return write()
 
 
 async def save_uploaded_file(upload_file: UploadFile) -> str:

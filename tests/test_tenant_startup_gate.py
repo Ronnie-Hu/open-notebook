@@ -37,3 +37,20 @@ async def test_account_mode_requires_encryption_before_database_changes(
         async with api_main.lifespan(api_main.app):
             pass
     migration.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_account_mode_requires_lifecycle_key_before_database_changes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPEN_NOTEBOOK_TAGENT_ACCOUNT_MODE", "1")
+    monkeypatch.setenv("OPEN_NOTEBOOK_PUBLIC_ORIGIN", "https://example.org:8502")
+    monkeypatch.setenv("OPEN_NOTEBOOK_ENCRYPTION_KEY", "e" * 48)
+    monkeypatch.delenv("OPEN_NOTEBOOK_TAGENT_LIFECYCLE_KEY", raising=False)
+    migration = AsyncMock()
+    monkeypatch.setattr(api_main, "_run_database_migrations", migration)
+
+    with pytest.raises(RuntimeError, match="OPEN_NOTEBOOK_TAGENT_LIFECYCLE_KEY"):
+        async with api_main.lifespan(api_main.app):
+            pass
+    migration.assert_not_awaited()

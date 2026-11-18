@@ -22,6 +22,7 @@ SessionVerifier = Callable[..., Awaitable[TagentSession | None]]
 AccountProvisioner = Callable[[UUID], Awaitable[None]]
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 _PUBLIC_PATHS = {"/health", "/api/config", "/api/auth/status"}
+_INTERNAL_LIFECYCLE_PREFIX = "/api/internal/accounts/"
 
 
 def _session_cookie(headers: Headers, name: str) -> str:
@@ -91,7 +92,11 @@ class TagentAccountMiddleware:
             return
         method = scope["method"].upper()
         path = scope["path"]
-        if path in _PUBLIC_PATHS or method == "OPTIONS":
+        if (
+            path in _PUBLIC_PATHS
+            or path.startswith(_INTERNAL_LIFECYCLE_PREFIX)
+            or method == "OPTIONS"
+        ):
             await self.app(scope, receive, send)
             return
 

@@ -70,6 +70,7 @@ async def main():
             "OPEN_NOTEBOOK_LEGACY_ADMIN_ID": str(ADMIN),
             "OPEN_NOTEBOOK_TAGENT_DB_SIGNING_KEY": "a" * 48,
             "OPEN_NOTEBOOK_ENCRYPTION_KEY": "b" * 48,
+            "OPEN_NOTEBOOK_TAGENT_LIFECYCLE_KEY": "l" * 48,
             "OPEN_NOTEBOOK_PUBLIC_ORIGIN": ORIGIN,
             "OPEN_NOTEBOOK_TAGENT_VERIFIER_URL": f"http://127.0.0.1:{server.server_port}",
         }

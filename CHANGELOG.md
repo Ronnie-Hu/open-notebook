@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Turkish README.** A Turkish translation of the README is at [docs/i18n/tr/README.md](docs/i18n/tr/README.md), linked from the README's language bar (#1549)
 
 ### Security
+- Account-mode users can now receive a ZIP archive of their owned notebook records, uploads, podcasts, chat checkpoints and background job results through a signed loopback request from TAgent. The internal job proof is omitted.
+- Account-mode deletion now disables the notebook record and can purge a student's owned records, uploads, podcasts, chat checkpoints and queued jobs through a signed loopback service call. Running jobs postpone cleanup for a retry, and the legacy administrator is protected.
 - Pin SoupSieve to a release with the upstream denial-of-service fixes for HTML selector parsing; source installs now require Python 3.11.5 or newer.
 - The complete Next.js interface now supports TAgent email accounts without storing the shared notebook password. Its API and streaming requests forward the verified host cookie, CSRF and active-account claim through the same HTTPS origin; a changed account forces reload. Registration is available from the notebook login screen. Account mode remains gated pending full-stack isolation and HTTPS deployment verification.
 - Account-mode notebook and source chats now use separate LangGraph checkpoint keys per verified account. The designated legacy administrator keeps the original checkpoint keys so existing messages remain accessible only through their account-scoped session records.
